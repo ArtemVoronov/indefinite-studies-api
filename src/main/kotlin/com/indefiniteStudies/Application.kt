@@ -1,20 +1,19 @@
 package com.indefiniteStudies
 
-import com.fasterxml.jackson.databind.SerializationFeature
+import com.indefiniteStudies.plugins.configureRouting
 import com.indefiniteStudies.routes.task.taskRoutes
-import io.ktor.serialization.jackson.*
-import io.ktor.server.application.*
+import io.ktor.application.*
+import io.ktor.features.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
-import io.ktor.server.plugins.*
+import io.ktor.serialization.*
 
 fun main() {
     embeddedServer(Netty, port = 8080, host = "0.0.0.0") {
         install(ContentNegotiation) {
-            jackson {
-                enable(SerializationFeature.INDENT_OUTPUT)
-            }
+            json()
         }
         taskRoutes()
+        configureRouting()
     }.start(wait = true)
 }

@@ -1,6 +1,8 @@
 package com.indefiniteStudies.routes.task
 
 import com.indefiniteStudies.model.entities.TaskState
+import kotlinx.serialization.*
 
-data class TaskDTO(val id: Int?, val name: String, val state: TaskState) {
+@Serializable
+data class TaskDTO(val id: Int? = null, val name: String, val state: TaskState) {
 }

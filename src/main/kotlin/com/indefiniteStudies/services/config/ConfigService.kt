@@ -4,6 +4,6 @@ import io.github.cdimascio.dotenv.Dotenv
 
 object ConfigService {
     val dotenv = Dotenv.configure()
-        .directory("./config/.env")
+        .directory("./.env")
         .load()
 }

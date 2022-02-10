@@ -2,5 +2,5 @@
 .idea/*
 build
 config/*
-!config/migrations
-config/.env
+!migrations
+.env

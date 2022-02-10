@@ -4,19 +4,21 @@ services:
     build: .
     ports:
       - "8080:8080"
-  db:
-    image: mysql:5.7
-    restart: always
-    environment:
-      MYSQL_DATABASE: "${DATABASE_DATABASE}"
-      MYSQL_USER: "${DATABASE_USER}"
-      MYSQL_PASSWORD: "${DATABASE_PASSWORD}"
-      MYSQL_ROOT_PASSWORD: "${DATABASE_ROOT_PASSWORD}"
-    ports:
-      - '3306:3306'
-    expose:
-      - '3306'
+    depends_on:
+      - liquibase
+  liquibase:
+    image: liquibase/liquibase
     volumes:
-      - indefinite-studies-api-volume:/var/lib/mysql
-volumes:
-  indefinite-studies-api-volume:
+      - ./migrations:/liquibase/changelog
+    command: [
+        "liquibase",
+        "--username=${DATABASE_USER}",
+        "--password=${DATABASE_PASSWORD}",
+        "--changeLogFile=changelog/db.changelog-root.xml",
+        "--url=${DATABASE_URL}",
+        "update"
+    ]
+networks:
+  default:
+    external: true
+    name: indefinite-studies-environment

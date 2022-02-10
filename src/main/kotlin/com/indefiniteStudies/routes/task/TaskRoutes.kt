@@ -3,11 +3,12 @@ package com.indefiniteStudies.routes.task
 import com.indefiniteStudies.model.entities.Task
 import com.indefiniteStudies.model.entities.TaskState
 import com.indefiniteStudies.services.db.DBService
+import io.ktor.application.*
 import io.ktor.http.*
-import io.ktor.server.application.*
-import io.ktor.server.request.*
-import io.ktor.server.response.*
-import io.ktor.server.routing.*
+import io.ktor.request.*
+import io.ktor.response.*
+import io.ktor.routing.*
+import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -33,12 +34,13 @@ fun Application.taskRoutes() {
                     )}
                     .toList()
 
-                val response = object {
-                    val limit = limit
-                    val offset = offset?:0
-                    val count = result.size
-                    val data = result
-                }
+
+                val response = TaskListDTO (
+                    limit = limit,
+                    offset = offset?:0,
+                    count = result.size,
+                    data = result,
+                )
 
                 call.respond(status = HttpStatusCode.OK, response)
 
@@ -54,7 +56,7 @@ fun Application.taskRoutes() {
                 val id = Integer.parseInt(call.parameters["id"])
                 val task = transaction(DBService.connection) {
                     Task.select {
-                        Task.id eq id
+                        (Task.id eq id) and (Task.state neq "${TaskState.DELETED.name}")
                     }.firstOrNull()
                 }
                 if (task == null) {
@@ -76,7 +78,7 @@ fun Application.taskRoutes() {
             }
         }
 
-        post("/task/") {
+        post("/task") {
             try {
                 val task = call.receive<TaskDTO>()
                 val createdValue = transaction(DBService.connection) {
@@ -105,11 +107,13 @@ fun Application.taskRoutes() {
                 val id = Integer.parseInt(call.parameters["id"])
 
                 transaction(DBService.connection) {
-                    Task.update({ Task.id eq id }) {
+                    Task.update({ (Task.id eq id) and (Task.state neq "${TaskState.DELETED.name}") }) {
                         it[Task.name] = task.name
                         it[Task.state] = task.state.name
                     }
                 }
+
+                // TODO: send NOT found if it does not exist
                 call.respondText("Task updated successfully", status = HttpStatusCode.OK)
             } catch (e : NumberFormatException) {
                 call.respondText("Missed ID", status = HttpStatusCode.BadRequest)
@@ -125,11 +129,12 @@ fun Application.taskRoutes() {
                 val id = Integer.parseInt(call.parameters["id"])
 
                 transaction(DBService.connection) {
-                    Task.update({ Task.id eq id }) {
+                    Task.update({ (Task.id eq id) and (Task.state neq "${TaskState.DELETED.name}") }) {
                         it[state] = TaskState.DELETED.toString()
                     }
                 }
 
+                // TODO: send NOT found if it does not exist
                 call.respondText("Task deleted successfully", status = HttpStatusCode.OK)
             } catch (e : NumberFormatException) {
                 call.respondText("Missed ID", status = HttpStatusCode.BadRequest)

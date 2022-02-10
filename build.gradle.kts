@@ -2,8 +2,9 @@ val ktor_version: String by project
 val kotlin_version: String by project
 val logback_version: String by project
 val exposed_version: String by project
-val mysql_connector_version: String by project
+val postgresql_version: String by project
 val dotenv_kotlin: String by project
+val kotlinx_serialization_version: String by project
 
 plugins {
     application
@@ -29,11 +30,10 @@ dependencies {
     implementation("org.jetbrains.exposed:exposed-core:$exposed_version")
     implementation("org.jetbrains.exposed:exposed-dao:$exposed_version")
     implementation("org.jetbrains.exposed:exposed-jdbc:$exposed_version")
-    implementation("mysql:mysql-connector-java:$mysql_connector_version")
+    implementation("org.postgresql:postgresql:$postgresql_version")
     implementation("io.github.cdimascio:dotenv-kotlin:$dotenv_kotlin")
-    implementation("io.ktor:ktor-server-content-negotiation-jvm:2.0.0-beta-1")
-    implementation("io.ktor:ktor-server-core-jvm:2.0.0-beta-1")
-    implementation("io.ktor:ktor-serialization-jackson-jvm:2.0.0-beta-1")
+    implementation("io.ktor:ktor-serialization:$ktor_version")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinx_serialization_version")
 
     testImplementation("io.ktor:ktor-server-tests:$ktor_version")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")
