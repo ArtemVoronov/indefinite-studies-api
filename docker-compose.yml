@@ -1,12 +1,14 @@
 version: "3.9"
 services:
   api:
+    container_name: indefinite_studies_api
     build: .
     ports:
       - "8080:8080"
     depends_on:
       - liquibase
   liquibase:
+    container_name: indefinite_studies_liquibase
     image: liquibase/liquibase
     volumes:
       - ./migrations:/liquibase/changelog
