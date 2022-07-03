@@ -5,6 +5,7 @@ val exposed_version: String by project
 val postgresql_version: String by project
 val dotenv_kotlin: String by project
 val kotlinx_serialization_version: String by project
+val kotlinx_datetime_version: String by project
 
 plugins {
     application
@@ -30,10 +31,13 @@ dependencies {
     implementation("org.jetbrains.exposed:exposed-core:$exposed_version")
     implementation("org.jetbrains.exposed:exposed-dao:$exposed_version")
     implementation("org.jetbrains.exposed:exposed-jdbc:$exposed_version")
+    implementation("org.jetbrains.exposed:exposed-java-time:$exposed_version")
     implementation("org.postgresql:postgresql:$postgresql_version")
     implementation("io.github.cdimascio:dotenv-kotlin:$dotenv_kotlin")
     implementation("io.ktor:ktor-serialization:$ktor_version")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinx_serialization_version")
+    implementation("org.jetbrains.kotlinx:kotlinx-datetime:$kotlinx_datetime_version")
+
 
     testImplementation("io.ktor:ktor-server-tests:$ktor_version")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")
