@@ -19,6 +19,7 @@ func Cors() gin.HandlerFunc {
 }
 
 // TODO: add authorization
+// TODO: update README
 
 func main() {
 
