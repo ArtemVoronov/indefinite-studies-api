@@ -22,9 +22,7 @@ func Cors() gin.HandlerFunc {
 }
 
 // TODO: add authorization
-// TODO: update README
 // TODO: add graceful shutdown
-// TODO: add logging
 
 func main() {
 
@@ -37,7 +35,7 @@ func main() {
 		port = "3000"
 	}
 
-	host := "localhost:" + port
+	host := ":" + port
 
 	log.Println("starting indefinite-studies-api at " + host + " ...")
 

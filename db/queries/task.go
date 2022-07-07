@@ -3,7 +3,6 @@ package queries
 import (
 	"database/sql"
 	"fmt"
-	"strconv"
 
 	"github.com/ArtemVoronov/indefinite-studies-api/db/entities"
 )
@@ -42,7 +41,7 @@ func GetTasks(db *sql.DB, limit string, offset string) ([]entities.Task, error) 
 func GetTask(db *sql.DB, id int) (entities.Task, error) {
 	var task entities.Task
 
-	err := db.QueryRow("SELECT id, name, state FROM tasks WHERE id = $1", id).Scan(&task.Id, &task.Name, &task.State)
+	err := db.QueryRow("SELECT id, name, state FROM tasks WHERE id = $1 and state != $2 ", id, entities.TASK_STATE_DELETED).Scan(&task.Id, &task.Name, &task.State)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return task, err
@@ -54,35 +53,44 @@ func GetTask(db *sql.DB, id int) (entities.Task, error) {
 	return task, nil
 }
 
-func CreateTask(db *sql.DB, name string, state string) (string, error) {
+func CreateTask(db *sql.DB, name string, state string) (int, error) {
 	lastInsertId := 0
 
 	err := db.QueryRow("INSERT INTO tasks(name, state) VALUES($1, $2) RETURNING id", name, state).Scan(&lastInsertId) // scan will release the connection
 	if err != nil {
-		return "", fmt.Errorf("error at inserting task (Name: '%s', State: '%s') into db, case after db.QueryRow.Scan: %s", name, state, err)
+		return -1, fmt.Errorf("error at inserting task (Name: '%s', State: '%s') into db, case after db.QueryRow.Scan: %s", name, state, err)
 	}
 
-	return strconv.Itoa(lastInsertId), nil
+	return lastInsertId, nil
 }
 
 func UpdateTask(db *sql.DB, id int, name string, state string) error {
-	stmt, err := db.Prepare("UPDATE tasks SET name = $2, state = $3 WHERE id = $1")
+	stmt, err := db.Prepare("UPDATE tasks SET name = $2, state = $3 WHERE id = $1 and state != $4")
 	if err != nil {
 		return fmt.Errorf("error at updating task, case after preparing statement: %s", err)
 	}
-	_, err = stmt.Exec(id, name, state)
+	res, err := stmt.Exec(id, name, state, entities.TASK_STATE_DELETED)
 	if err != nil {
 		return fmt.Errorf("error at updating task (Id: %d, Name: '%s', State: '%s'), case after executing statement: %s", id, name, state, err)
 	}
+
+	affectedRowsCount, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("error at updating task (Id: %d, Name: '%s', State: '%s'), case after counting affected rows: %s", id, name, state, err)
+	}
+	if affectedRowsCount == 0 {
+		return sql.ErrNoRows
+	}
+
 	return nil
 }
 
 func DeleteTask(db *sql.DB, id int) error {
-	stmt, err := db.Prepare("UPDATE tasks SET state = $2 WHERE id = $1")
+	stmt, err := db.Prepare("UPDATE tasks SET state = $2 WHERE id = $1 and state != $3")
 	if err != nil {
 		return fmt.Errorf("error at deleting task, case after preparing statement: %s", err)
 	}
-	_, err = stmt.Exec(id, entities.TASK_STATE_DELETED)
+	_, err = stmt.Exec(id, entities.TASK_STATE_DELETED, entities.TASK_STATE_DELETED)
 	if err != nil {
 		return fmt.Errorf("error at deleting task by id '%d', case after executing statement: %s", id, err)
 	}

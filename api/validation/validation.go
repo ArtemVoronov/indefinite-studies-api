@@ -29,7 +29,8 @@ func ProcessAndSendValidationErrorMessage(c *gin.Context, err error) {
 			out[i] = ApiError{fe.Field(), GetValidationMessageForTag(fe.Tag())}
 		}
 		c.JSON(http.StatusBadRequest, gin.H{"errors": out})
+		return
 	}
 
-	c.JSON(http.StatusInternalServerError, "Error during validation of HTTP request body")
+	c.JSON(http.StatusInternalServerError, "Error during parsing of HTTP request body. Please check it format correctness.")
 }

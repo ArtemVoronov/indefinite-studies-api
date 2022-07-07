@@ -12,8 +12,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type TaskDTO struct {
+type TaskEditDTO struct {
 	Id    int    `json:"id" binding:"required"`
+	Name  string `json:"name" binding:"required"`
+	State string `json:"state" binding:"required"`
+}
+
+type TaskCreateDTO struct {
 	Name  string `json:"name" binding:"required"`
 	State string `json:"state" binding:"required"`
 }
@@ -68,14 +73,15 @@ func GetTask(c *gin.Context) {
 }
 
 func CreateTask(c *gin.Context) {
-	var task TaskDTO
+	var task TaskCreateDTO
 
 	if err := c.ShouldBindJSON(&task); err != nil {
 		validation.ProcessAndSendValidationErrorMessage(c, err)
 		return
 	}
+
 	result, err := queries.CreateTask(db.DB, task.Name, task.State)
-	if err != nil {
+	if err != nil || result == -1 {
 		c.IndentedJSON(http.StatusInternalServerError, "Unable to create task")
 		log.Printf("Unable to create task : %s", err)
 		return
@@ -85,7 +91,7 @@ func CreateTask(c *gin.Context) {
 }
 
 func UpdateTask(c *gin.Context) {
-	var task TaskDTO
+	var task TaskEditDTO
 
 	if err := c.ShouldBindJSON(&task); err != nil {
 		validation.ProcessAndSendValidationErrorMessage(c, err)
@@ -94,9 +100,14 @@ func UpdateTask(c *gin.Context) {
 
 	err := queries.UpdateTask(db.DB, task.Id, task.Name, task.State)
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, "Unable to create task")
-		log.Printf("Unable to update tasks : %s", err)
-		return
+		if err == sql.ErrNoRows {
+			c.IndentedJSON(http.StatusOK, "NOT_FOUND")
+			return
+		} else {
+			c.IndentedJSON(http.StatusInternalServerError, "Unable to create task")
+			log.Printf("Unable to update tasks : %s", err)
+			return
+		}
 
 	}
 	c.IndentedJSON(http.StatusOK, "Done")
@@ -118,7 +129,7 @@ func DeleteTask(c *gin.Context) {
 	}
 	err := queries.DeleteTask(db.DB, id)
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, "Unable to create task")
+		c.IndentedJSON(http.StatusInternalServerError, "Unable to delete task")
 		log.Printf("Unable to delete task: %s", err)
 		return
 	}
