@@ -4,4 +4,4 @@
 build
 config/*
 !migrations
-.env
+.env*

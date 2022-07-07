@@ -13,7 +13,7 @@ var DB *sql.DB // TODO: make injection of DB to api functions
 
 func Setup() *sql.DB {
 
-	dbEnvVars := [6]string{"DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME", "DB_SSL_MODE"}
+	dbEnvVars := [6]string{"DATABASE_HOST", "DATABASE_PORT", "DATABASE_USER", "DATABASE_PASSWORD", "DATABASE_NAME", "DATABASE_SSL_MODE"}
 	var variables []string
 	for _, element := range dbEnvVars {
 

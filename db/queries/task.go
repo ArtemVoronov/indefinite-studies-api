@@ -3,7 +3,7 @@ package queries
 import (
 	"database/sql"
 	"fmt"
-	"log"
+	"strconv"
 
 	"github.com/ArtemVoronov/indefinite-studies-api/db/entities"
 )
@@ -18,22 +18,22 @@ func GetTasks(db *sql.DB, limit string, offset string) ([]entities.Task, error) 
 		state string
 	)
 
-	rows, err := db.Query("SELECT id, name, state FROM tasks LIMIT $1 OFFSET $2", limit, offset)
+	rows, err := db.Query("SELECT id, name, state FROM tasks WHERE state != $3 LIMIT $1 OFFSET $2 ", limit, offset, entities.TASK_STATE_DELETED)
 	if err != nil {
-		log.Fatal(err) // TODO fix os.Exit(1) problem
+		return tasks, fmt.Errorf("error at loading tasks from db, case after db.Query: %s", err)
 	}
 	defer rows.Close()
 
 	for rows.Next() {
 		err := rows.Scan(&id, &name, &state)
 		if err != nil {
-			log.Fatal(err) // TODO fix os.Exit(1) problem
+			return tasks, fmt.Errorf("error at loading tasks from db, case iterating and using rows.Scan: %s", err)
 		}
 		tasks = append(tasks, entities.Task{Id: id, Name: name, State: state})
 	}
 	err = rows.Err()
 	if err != nil {
-		log.Fatal(err) // TODO fix os.Exit(1) problem
+		return tasks, fmt.Errorf("error at loading tasks from db, case after iterating: %s", err)
 	}
 
 	return tasks, nil
@@ -47,7 +47,7 @@ func GetTask(db *sql.DB, id int) (entities.Task, error) {
 		if err == sql.ErrNoRows {
 			return task, err
 		} else {
-			log.Fatal(err) // TODO fix os.Exit(1) problem
+			return task, fmt.Errorf("error at loading task by id '%d' from db, case after db.QueryRow.Scan: %s", id, err)
 		}
 	}
 
@@ -55,64 +55,36 @@ func GetTask(db *sql.DB, id int) (entities.Task, error) {
 }
 
 func CreateTask(db *sql.DB, name string, state string) (string, error) {
-	stmt, err := db.Prepare("INSERT INTO tasks(name, state) VALUES($1, $2)")
+	lastInsertId := 0
+
+	err := db.QueryRow("INSERT INTO tasks(name, state) VALUES($1, $2) RETURNING id", name, state).Scan(&lastInsertId) // scan will release the connection
 	if err != nil {
-		log.Fatal(err)
+		return "", fmt.Errorf("error at inserting task (Name: '%s', State: '%s') into db, case after db.QueryRow.Scan: %s", name, state, err)
 	}
-	res, err := stmt.Exec(name, state)
-	if err != nil {
-		log.Fatal(err) // TODO fix os.Exit(1) problem
-	}
-	lastId, err := res.LastInsertId()
-	if err != nil {
-		log.Fatal(err) // TODO fix os.Exit(1) problem
-	}
-	rowCnt, err := res.RowsAffected()
-	if err != nil {
-		log.Fatal(err) // TODO fix os.Exit(1) problem
-	}
-	result := fmt.Sprintf("ID = %d, affected = %d\n", lastId, rowCnt)
-	return result, nil
+
+	return strconv.Itoa(lastInsertId), nil
 }
 
-func UpdateTask(db *sql.DB, id int, name string, state string) (string, error) {
+func UpdateTask(db *sql.DB, id int, name string, state string) error {
 	stmt, err := db.Prepare("UPDATE tasks SET name = $2, state = $3 WHERE id = $1")
 	if err != nil {
-		log.Fatal(err) // TODO fix os.Exit(1) problem
+		return fmt.Errorf("error at updating task, case after preparing statement: %s", err)
 	}
-	res, err := stmt.Exec(id, name, state)
+	_, err = stmt.Exec(id, name, state)
 	if err != nil {
-		log.Fatal(err) // TODO fix os.Exit(1) problem
+		return fmt.Errorf("error at updating task (Id: %d, Name: '%s', State: '%s'), case after executing statement: %s", id, name, state, err)
 	}
-	lastId, err := res.LastInsertId()
-	if err != nil {
-		log.Fatal(err) // TODO fix os.Exit(1) problem
-	}
-	rowCnt, err := res.RowsAffected()
-	if err != nil {
-		log.Fatal(err) // TODO fix os.Exit(1) problem
-	}
-	result := fmt.Sprintf("ID = %d, affected = %d\n", lastId, rowCnt)
-	return result, nil
+	return nil
 }
 
-func DeleteTask(db *sql.DB, id int) (string, error) {
+func DeleteTask(db *sql.DB, id int) error {
 	stmt, err := db.Prepare("UPDATE tasks SET state = $2 WHERE id = $1")
 	if err != nil {
-		log.Fatal(err) // TODO fix os.Exit(1) problem
+		return fmt.Errorf("error at deleting task, case after preparing statement: %s", err)
 	}
-	res, err := stmt.Exec(id, entities.TASK_STATE_DELETED)
+	_, err = stmt.Exec(id, entities.TASK_STATE_DELETED)
 	if err != nil {
-		log.Fatal(err) // TODO fix os.Exit(1) problem
+		return fmt.Errorf("error at deleting task by id '%d', case after executing statement: %s", id, err)
 	}
-	lastId, err := res.LastInsertId()
-	if err != nil {
-		log.Fatal(err) // TODO fix os.Exit(1) problem
-	}
-	rowCnt, err := res.RowsAffected()
-	if err != nil {
-		log.Fatal(err) // TODO fix os.Exit(1) problem
-	}
-	result := fmt.Sprintf("ID = %d, affected = %d\n", lastId, rowCnt)
-	return result, nil
+	return nil
 }
