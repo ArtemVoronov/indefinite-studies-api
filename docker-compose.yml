@@ -4,14 +4,14 @@ services:
     container_name: indefinite_studies_api
     build: .
     ports:
-      - "8080:8080"
+      - "3000:3000"
     depends_on:
       - liquibase
   liquibase:
     container_name: indefinite_studies_liquibase
     image: liquibase/liquibase
     volumes:
-      - ./migrations:/liquibase/changelog
+      - ./db/migrations:/liquibase/changelog
     command: [
         "liquibase",
         "--username=${DATABASE_USER}",

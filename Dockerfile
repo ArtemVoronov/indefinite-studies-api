@@ -1,7 +1,15 @@
-FROM openjdk:8-jdk
-EXPOSE 8080:8080
+FROM golang:1.18
+
 RUN mkdir /app
-COPY ./build/install/indefinite-studies-api/ /app/
-COPY ./.env /app/bin
-WORKDIR /app/bin
-CMD ["./indefinite-studies-api"]
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download && go mod verify
+
+COPY . ./
+
+RUN go build -o ./indefinite-studies-api
+
+EXPOSE 3000
+
+CMD [ "./indefinite-studies-api" ]

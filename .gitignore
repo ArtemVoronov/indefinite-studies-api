@@ -1,6 +1,7 @@
 .gradle
 .idea/*
+.vscode/*
 build
 config/*
 !migrations
-.env
+.env*
