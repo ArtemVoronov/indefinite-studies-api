@@ -30,5 +30,7 @@ func Setup() *sql.DB {
 		log.Fatalf("Unable to connect to database : %s", err)
 	}
 
+	log.Printf("----- Database service setup succeed. Database name: %s -----", variables[4])
+
 	return result
 }
