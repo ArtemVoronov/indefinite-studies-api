@@ -25,7 +25,3 @@ require (
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
-
-// replace github.com/ArtemVoronov/indefinite-studies-api/db/entities => ../db/entities
-// replace github.com/ArtemVoronov/indefinite-studies-api/api/rest/v1/healthcheck => ../api/rest/v1/healthcheck
-// replace github.com/ArtemVoronov/indefinite-studies-api/api/rest/v1/task => ../api/rest/v1/task

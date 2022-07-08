@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/ArtemVoronov/indefinite-studies-api/db/entities"
+	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/entities"
 )
 
 //TODO: add tests for each case

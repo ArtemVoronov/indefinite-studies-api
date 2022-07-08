@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/ArtemVoronov/indefinite-studies-api/api/validation"
-	"github.com/ArtemVoronov/indefinite-studies-api/db"
-	"github.com/ArtemVoronov/indefinite-studies-api/db/queries"
+	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/validation"
+	"github.com/ArtemVoronov/indefinite-studies-api/internal/db"
+	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/queries"
 	"github.com/gin-gonic/gin"
 )
 

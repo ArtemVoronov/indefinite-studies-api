@@ -11,9 +11,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ArtemVoronov/indefinite-studies-api/api/rest/v1/ping"
-	"github.com/ArtemVoronov/indefinite-studies-api/api/rest/v1/tasks"
-	"github.com/ArtemVoronov/indefinite-studies-api/db"
+	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/ping"
+	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/tasks"
+	"github.com/ArtemVoronov/indefinite-studies-api/internal/db"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
