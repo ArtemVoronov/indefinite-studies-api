@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/ArtemVoronov/indefinite-studies-api/db/entities"
+	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/entities"
 )
 
 //TODO: add tests for each case
@@ -54,7 +54,7 @@ func GetTask(db *sql.DB, id int) (entities.Task, error) {
 }
 
 func CreateTask(db *sql.DB, name string, state string) (int, error) {
-	lastInsertId := 0
+	lastInsertId := -1
 
 	err := db.QueryRow("INSERT INTO tasks(name, state) VALUES($1, $2) RETURNING id", name, state).Scan(&lastInsertId) // scan will release the connection
 	if err != nil {
