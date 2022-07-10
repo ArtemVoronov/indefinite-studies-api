@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/gin-contrib/expvar"
+
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/ping"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/tasks"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/app"
@@ -38,6 +40,8 @@ func main() {
 
 	v1 := router.Group("/api/v1", gin.BasicAuth(apiUsers))
 	{
+
+		v1.GET("/debug/vars", expvar.Handler())
 		v1.GET("/ping", ping.Ping)
 		v1.GET("/tasks/", tasks.GetTasks)
 		v1.GET("/tasks/:id", tasks.GetTask)
