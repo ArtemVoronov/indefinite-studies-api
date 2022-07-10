@@ -10,7 +10,6 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/entities"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/queries"
 	"github.com/stretchr/testify/assert"
-	"os"
 	"testing"
 )
 
@@ -20,14 +19,6 @@ const (
 	TEST_TASK_NAME_2  string = "Test task 2"
 	TEST_TASK_STATE_2 string = entities.TASK_STATE_DONE
 )
-
-func TestMain(m *testing.M) {
-	integrationTesting.Setup()
-	code := m.Run()
-	integrationTesting.Shutdown()
-	os.Exit(code)
-
-}
 
 func TestGetTask(t *testing.T) {
 	t.Run("ExpectedNotFoundError", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
@@ -57,21 +48,15 @@ func TestGetTask(t *testing.T) {
 }
 
 func TestCreateTask(t *testing.T) {
-	t.Run("", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		expectedFirstTaskId := 1
-		expectedSecondTaskId := 2
+	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+		expectedTaskId := 1
 
-		actualFirstTaskId, err := queries.CreateTask(db.DB, TEST_TASK_NAME_1, TEST_TASK_STATE_1)
-		if err != nil || actualFirstTaskId == -1 {
-			t.Errorf("Unable to create task: %s", err)
-		}
-		actualSecondTaskId, err := queries.CreateTask(db.DB, TEST_TASK_NAME_1, TEST_TASK_STATE_1)
-		if err != nil || actualSecondTaskId == -1 {
+		actualTaskId, err := queries.CreateTask(db.DB, TEST_TASK_NAME_1, TEST_TASK_STATE_1)
+		if err != nil || actualTaskId == -1 {
 			t.Errorf("Unable to create task: %s", err)
 		}
 
-		assert.Equal(t, expectedFirstTaskId, actualFirstTaskId)
-		assert.Equal(t, expectedSecondTaskId, actualSecondTaskId)
+		assert.Equal(t, expectedTaskId, actualTaskId)
 	})))
 }
 
