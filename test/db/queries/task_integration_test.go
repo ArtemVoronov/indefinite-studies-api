@@ -5,12 +5,13 @@ package queries_test
 
 import (
 	"database/sql"
+	"testing"
+
 	integrationTesting "github.com/ArtemVoronov/indefinite-studies-api/internal/app/testing"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/entities"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/queries"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 const (
@@ -27,7 +28,6 @@ func TestGetTask(t *testing.T) {
 		_, actualError := queries.GetTask(db.DB, 1)
 
 		assert.Equal(t, expectedError, actualError)
-
 	})))
 	t.Run("ExpectedResult", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedName := TEST_TASK_NAME_1
@@ -43,7 +43,6 @@ func TestGetTask(t *testing.T) {
 		assert.Equal(t, expectedId, actual.Id)
 		assert.Equal(t, expectedName, actual.Name)
 		assert.Equal(t, expectedState, actual.State)
-
 	})))
 }
 
@@ -156,7 +155,6 @@ func TestUpdateTask(t *testing.T) {
 		actualError := queries.UpdateTask(db.DB, taskId, TEST_TASK_NAME_2, TEST_TASK_STATE_2)
 
 		assert.Equal(t, expectedError, actualError)
-
 	})))
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedName := TEST_TASK_NAME_2
@@ -189,7 +187,6 @@ func TestDeleteTask(t *testing.T) {
 		}
 	})))
 	t.Run("AlreadyDeletedCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-
 		taskId, err := queries.CreateTask(db.DB, TEST_TASK_NAME_1, TEST_TASK_STATE_1)
 		if err != nil || taskId == -1 {
 			t.Errorf("Unable to create task: %s", err)
@@ -212,6 +209,7 @@ func TestDeleteTask(t *testing.T) {
 		expectedState := TEST_TASK_STATE_1
 		expectedError := sql.ErrNoRows
 		expectedArrayLength := 2
+		taskIdToDelete := 2
 		for i := 0; i < 3; i++ {
 			taskId, err := queries.CreateTask(db.DB, TEST_TASK_NAME_1, TEST_TASK_STATE_1)
 			if err != nil || taskId == -1 {
@@ -219,7 +217,7 @@ func TestDeleteTask(t *testing.T) {
 			}
 		}
 
-		err := queries.DeleteTask(db.DB, 2)
+		err := queries.DeleteTask(db.DB, taskIdToDelete)
 		if err != nil {
 			t.Errorf("Unable to delete task: %s", err)
 		}
@@ -239,7 +237,7 @@ func TestDeleteTask(t *testing.T) {
 		assert.Equal(t, expectedName, tasks[1].Name)
 		assert.Equal(t, expectedState, tasks[1].State)
 
-		_, actualError := queries.GetTask(db.DB, 2)
+		_, actualError := queries.GetTask(db.DB, taskIdToDelete)
 
 		assert.Equal(t, expectedError, actualError)
 	})))
