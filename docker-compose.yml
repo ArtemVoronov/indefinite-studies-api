@@ -22,15 +22,23 @@ services:
     ]
   # TODO: think about carelessness removing prod database  
   # TODO: think about counting migrations and adding it to script or but license for liquibase and use pro functions
-  liquibase_destroy_and_create_db:
+  liquibase_rollback_all_and_create_db_again:
     profiles: ["integration-tests-only"]
-    container_name: indefinite_studies_liquibase_destroy_and_create_db
+    container_name: indefinite_studies_liquibase_rollback_all_and_create_db_again
     image: liquibase/liquibase
     volumes:
       - ./internal/db/migrations:/liquibase/changelog
     command: >
-        bash -c "liquibase --username=${DATABASE_USER} --password=${DATABASE_PASSWORD} --changeLogFile=changelog/db.changelog-root.xml --url=${DATABASE_URL} rollback-count 2
+        bash -c "liquibase --username=${DATABASE_USER} --password=${DATABASE_PASSWORD} --changeLogFile=changelog/db.changelog-root.xml --url=${DATABASE_URL} rollback-count 1
         && liquibase --username=${DATABASE_USER} --password=${DATABASE_PASSWORD} --changeLogFile=changelog/db.changelog-root.xml --url=${DATABASE_URL} update"
+  liquibase_rollback_all:
+    profiles: ["integration-tests-only"]
+    container_name: indefinite_studies_liquibase_rollback_all
+    image: liquibase/liquibase
+    volumes:
+      - ./internal/db/migrations:/liquibase/changelog
+    command: >
+        bash -c "liquibase --username=${DATABASE_USER} --password=${DATABASE_PASSWORD} --changeLogFile=changelog/db.changelog-root.xml --url=${DATABASE_URL} rollback-count 1"
     
 networks:
   default:

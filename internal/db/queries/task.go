@@ -7,8 +7,6 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/entities"
 )
 
-//TODO: add tests for each case
-
 func GetTasks(db *sql.DB, limit string, offset string) ([]entities.Task, error) {
 	var tasks []entities.Task
 	var (
@@ -86,11 +84,11 @@ func UpdateTask(db *sql.DB, id int, name string, state string) error {
 }
 
 func DeleteTask(db *sql.DB, id int) error {
-	stmt, err := db.Prepare("UPDATE tasks SET state = $2 WHERE id = $1 and state != $3")
+	stmt, err := db.Prepare("UPDATE tasks SET state = $2 WHERE id = $1 and state != $2")
 	if err != nil {
 		return fmt.Errorf("error at deleting task, case after preparing statement: %s", err)
 	}
-	_, err = stmt.Exec(id, entities.TASK_STATE_DELETED, entities.TASK_STATE_DELETED)
+	_, err = stmt.Exec(id, entities.TASK_STATE_DELETED)
 	if err != nil {
 		return fmt.Errorf("error at deleting task by id '%d', case after executing statement: %s", id, err)
 	}
