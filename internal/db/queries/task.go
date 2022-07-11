@@ -7,6 +7,8 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/entities"
 )
 
+// TODO: add tx
+
 func GetTasks(db *sql.DB, limit string, offset string) ([]entities.Task, error) {
 	var tasks []entities.Task
 	var (

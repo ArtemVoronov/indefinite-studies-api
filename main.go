@@ -41,7 +41,6 @@ func main() {
 	// TODO: add permission controller by user role and user state
 	v1 := router.Group("/api/v1", gin.BasicAuth(apiUsers)) // TODO: add auth via jwt, update model accordingly
 	{
-
 		v1.GET("/debug/vars", expvar.Handler())
 		v1.GET("/ping", ping.Ping)
 		v1.GET("/tasks/", tasks.GetTasks)

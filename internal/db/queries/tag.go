@@ -7,6 +7,8 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/entities"
 )
 
+// TODO: add tx
+
 func GetTags(db *sql.DB, limit string, offset string) ([]entities.Tag, error) {
 	var tags []entities.Tag
 	var (
