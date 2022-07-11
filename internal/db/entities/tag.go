@@ -8,5 +8,6 @@ type Tag struct {
 
 const (
 	TAG_STATE_NEW     string = "NEW"
+	TAG_STATE_BLOCKED string = "BLOCKED"
 	TAG_STATE_DELETED string = "DELETED"
 )

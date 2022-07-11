@@ -17,7 +17,7 @@ func InitTestEnv() {
 
 func RecreateTestDB() {
 	// TODO: think about carelessness removing prod database
-	cmd := exec.Command("docker-compose", "--env-file", "./.env.test", "--profile", "integration-tests-only", "up", "liquibase_destroy_and_create_db")
+	cmd := exec.Command("docker-compose", "--env-file", "./.env.test", "--profile", "integration-tests-only", "up", "liquibase_rollback_all_and_create_db_again")
 	// TODO: unify path for any environment
 	cmd.Dir = "/home/voronov/projects/my/indefinite-studies-api"
 	_ /*stdout*/, err := cmd.Output()
