@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -9,7 +10,11 @@ import (
 	_ "github.com/lib/pq"
 )
 
-var DB *sql.DB // TODO: make injection of DB to api functions
+// TODO: add explicit tx using, and context with 30 second timeout, make timeout and db *sql.D as one struct that is used by queries
+// TODO: then make injection of DB to api functions and integration tests, maybe just a singleton
+var DB *sql.DB
+
+var ErrorDuplicateKey = errors.New("pq: duplicate key value violates unique constraint \"tasks_name_state_unique\"")
 
 func Setup() *sql.DB {
 

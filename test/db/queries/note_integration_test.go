@@ -5,13 +5,14 @@ package queries_test
 
 import (
 	"database/sql"
+	"strconv"
+	"testing"
+
 	integrationTesting "github.com/ArtemVoronov/indefinite-studies-api/internal/app/testing"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/entities"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/queries"
 	"github.com/stretchr/testify/assert"
-	"strconv"
-	"testing"
 )
 
 const (

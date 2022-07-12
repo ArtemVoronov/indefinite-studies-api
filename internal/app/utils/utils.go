@@ -17,3 +17,12 @@ func CreateSHA256HashHexEncoded(str string) string {
 	hasher.Write([]byte(str))
 	return hex.EncodeToString(hasher.Sum(nil))
 }
+
+func Contains(array []string, elem string) bool {
+	for _, n := range array {
+		if elem == n {
+			return true
+		}
+	}
+	return false
+}

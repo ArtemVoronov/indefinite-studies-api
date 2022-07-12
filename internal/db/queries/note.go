@@ -8,8 +8,6 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/entities"
 )
 
-// TODO: add tx
-
 func GetNotes(db *sql.DB, limit string, offset string) ([]entities.Note, error) {
 	var note []entities.Note
 	var (

@@ -4,10 +4,9 @@ import (
 	"database/sql"
 	"fmt"
 
+	DBService "github.com/ArtemVoronov/indefinite-studies-api/internal/db"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/entities"
 )
-
-// TODO: add tx
 
 func GetTasks(db *sql.DB, limit string, offset string) ([]entities.Task, error) {
 	var tasks []entities.Task
@@ -45,9 +44,8 @@ func GetTask(db *sql.DB, id int) (entities.Task, error) {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return task, err
-		} else {
-			return task, fmt.Errorf("error at loading task by id '%d' from db, case after db.QueryRow.Scan: %s", id, err)
 		}
+		return task, fmt.Errorf("error at loading task by id '%d' from db, case after db.QueryRow.Scan: %s", id, err)
 	}
 
 	return task, nil
@@ -58,6 +56,9 @@ func CreateTask(db *sql.DB, name string, state string) (int, error) {
 
 	err := db.QueryRow("INSERT INTO tasks(name, state) VALUES($1, $2) RETURNING id", name, state).Scan(&lastInsertId) // scan will release the connection
 	if err != nil {
+		if err.Error() == DBService.ErrorDuplicateKey.Error() {
+			return -1, err
+		}
 		return -1, fmt.Errorf("error at inserting task (Name: '%s', State: '%s') into db, case after db.QueryRow.Scan: %s", name, state, err)
 	}
 

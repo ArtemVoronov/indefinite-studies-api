@@ -51,7 +51,11 @@ func RunWithRecreateDB(f TestFunc) func(t *testing.T) {
 
 func Setup() {
 	InitTestEnv()
-	db.DB = db.Setup()
+	if db.DB == nil {
+		db.DB = db.Setup()
+	} else {
+		fmt.Println("Unexpected tye to init test *sql.DB")
+	}
 }
 
 func Shutdown() {

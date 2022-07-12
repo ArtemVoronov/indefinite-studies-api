@@ -8,8 +8,6 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/entities"
 )
 
-// TODO: add tx
-
 func GetUsers(db *sql.DB, limit string, offset string) ([]entities.User, error) {
 	var user []entities.User
 	var (

@@ -4,9 +4,10 @@
 package queries_test
 
 import (
-	integrationTesting "github.com/ArtemVoronov/indefinite-studies-api/internal/app/testing"
 	"os"
 	"testing"
+
+	integrationTesting "github.com/ArtemVoronov/indefinite-studies-api/internal/app/testing"
 )
 
 var DuplicateKeyConstraintViolationError string = "pq: duplicate key value violates unique constraint \"%s\""
