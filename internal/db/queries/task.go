@@ -56,8 +56,8 @@ func CreateTask(db *sql.DB, name string, state string) (int, error) {
 
 	err := db.QueryRow("INSERT INTO tasks(name, state) VALUES($1, $2) RETURNING id", name, state).Scan(&lastInsertId) // scan will release the connection
 	if err != nil {
-		if err.Error() == DBService.ErrorDuplicateKey.Error() {
-			return -1, DBService.ErrorDuplicateKey
+		if err.Error() == DBService.ErrorTaskDuplicateKey.Error() {
+			return -1, DBService.ErrorTaskDuplicateKey
 		}
 		return -1, fmt.Errorf("error at inserting task (Name: '%s', State: '%s') into db, case after db.QueryRow.Scan: %s", name, state, err)
 	}
@@ -72,8 +72,8 @@ func UpdateTask(db *sql.DB, id int, name string, state string) error {
 	}
 	res, err := stmt.Exec(id, name, state, entities.TASK_STATE_DELETED)
 	if err != nil {
-		if err.Error() == DBService.ErrorDuplicateKey.Error() {
-			return DBService.ErrorDuplicateKey
+		if err.Error() == DBService.ErrorTaskDuplicateKey.Error() {
+			return DBService.ErrorTaskDuplicateKey
 		}
 		return fmt.Errorf("error at updating task (Id: %d, Name: '%s', State: '%s'), case after executing statement: %s", id, name, state, err)
 	}

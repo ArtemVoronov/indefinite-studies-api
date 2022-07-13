@@ -14,7 +14,8 @@ import (
 // TODO: then make injection of DB to api functions and integration tests, maybe just a singleton
 var DB *sql.DB
 
-var ErrorDuplicateKey = errors.New("pq: duplicate key value violates unique constraint \"tasks_name_state_unique\"")
+var ErrorTaskDuplicateKey = errors.New("pq: duplicate key value violates unique constraint \"tasks_name_state_unique\"")
+var ErrorTagDuplicateKey = errors.New("pq: duplicate key value violates unique constraint \"tags_name_state_unique\"")
 
 func Setup() *sql.DB {
 

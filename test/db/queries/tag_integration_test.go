@@ -26,7 +26,7 @@ const (
 
 var TagDuplicateKeyConstraintViolationError = fmt.Errorf(DuplicateKeyConstraintViolationError, "tags_name_state_unique")
 
-func TestDBGetTag(t *testing.T) {
+func TestDBTagGet(t *testing.T) {
 	t.Run("ExpectedNotFoundError", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedError := sql.ErrNoRows
 
@@ -50,7 +50,7 @@ func TestDBGetTag(t *testing.T) {
 	})))
 }
 
-func TestDBCreateTag(t *testing.T) {
+func TestDBTagCreate(t *testing.T) {
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedTagId := 1
 
@@ -62,19 +62,17 @@ func TestDBCreateTag(t *testing.T) {
 		assert.Equal(t, expectedTagId, actualTagId)
 	})))
 	t.Run("DuplicateCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		expectedError := fmt.Errorf("error at inserting tag (Name: '%s', State: '%s') into db, case after db.QueryRow.Scan: %s", TEST_TAG_NAME_1, TEST_TAG_STATE_1, TagDuplicateKeyConstraintViolationError)
-
 		tagId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 		if err != nil || tagId == -1 {
 			t.Errorf("Unable to create tag: %s", err)
 		}
 		_, actualError := queries.CreateTag(db.DB, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
-		assert.Equal(t, expectedError, actualError)
+		assert.Equal(t, db.ErrorTagDuplicateKey, actualError)
 	})))
 }
 
-func TestDBGetTags(t *testing.T) {
+func TestDBTagGetAll(t *testing.T) {
 	t.Run("ExpectedEmpty", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedArrayLength := 0
 
@@ -154,7 +152,7 @@ func TestDBGetTags(t *testing.T) {
 	})))
 }
 
-func TestDBUpdateTag(t *testing.T) {
+func TestDBTagUpdate(t *testing.T) {
 	t.Run("ExpectedNotFoundError", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedError := sql.ErrNoRows
 
@@ -208,38 +206,29 @@ func TestDBUpdateTag(t *testing.T) {
 			t.Errorf("Unable to create tag: %s", err)
 		}
 
-		expectedError := fmt.Errorf("error at updating tag (Id: %d, Name: '%s', State: '%s'), case after executing statement: %s", tagId, TEST_TAG_NAME_1, TEST_TAG_STATE_1, TagDuplicateKeyConstraintViolationError)
-
 		actualError := queries.UpdateTag(db.DB, tagId, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
-		assert.Equal(t, expectedError, actualError)
+		assert.Equal(t, db.ErrorTagDuplicateKey, actualError)
 	})))
 }
 
-func TestDBDeleteTag(t *testing.T) {
+func TestDBTagDelete(t *testing.T) {
 	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		notExistentTagId := 1
 
 		actualError := queries.DeleteTag(db.DB, notExistentTagId)
-		if actualError != nil {
-			t.Errorf("Unable to delete tag: %s", actualError)
-		}
+		assert.Equal(t, sql.ErrNoRows, actualError)
 	})))
 	t.Run("AlreadyDeletedCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		tagId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
-		if err != nil || tagId == -1 {
-			t.Errorf("Unable to create tag: %s", err)
-		}
+		assert.Nil(t, err)
+		assert.NotEqual(t, tagId, -1)
 
 		err = queries.DeleteTag(db.DB, tagId)
-		if err != nil {
-			t.Errorf("Unable to delete tag: %s", err)
-		}
+		assert.Nil(t, err)
 
-		actualError := queries.DeleteTag(db.DB, tagId)
-		if actualError != nil {
-			t.Errorf("Unable to delete tag: %s", actualError)
-		}
+		err = queries.DeleteTag(db.DB, tagId)
+		assert.Equal(t, sql.ErrNoRows, err)
 	})))
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedFirstTagId := 1
@@ -250,20 +239,15 @@ func TestDBDeleteTag(t *testing.T) {
 		tagIdToDelete := 2
 		for i := 0; i < 3; i++ {
 			tagId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_TEMPLATE+strconv.Itoa(i), entities.TAG_STATE_NEW)
-			if err != nil || tagId == -1 {
-				t.Errorf("Unable to create tag: %s", err)
-			}
+			assert.Nil(t, err)
+			assert.NotEqual(t, tagId, -1)
 		}
 
 		err := queries.DeleteTag(db.DB, tagIdToDelete)
-		if err != nil {
-			t.Errorf("Unable to delete tag: %s", err)
-		}
+		assert.Nil(t, err)
 
 		tags, err := queries.GetTags(db.DB, "50", "0")
-		if err != nil {
-			t.Errorf("Unable to get to tags : %s", err)
-		}
+		assert.Nil(t, err)
 		actualArrayLength := len(tags)
 
 		assert.Equal(t, expectedArrayLength, actualArrayLength)

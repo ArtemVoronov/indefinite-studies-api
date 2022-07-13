@@ -26,7 +26,7 @@ const (
 
 var TaskDuplicateKeyConstraintViolationError = fmt.Errorf(DuplicateKeyConstraintViolationError, "tasks_name_state_unique")
 
-func TestDBGetTask(t *testing.T) {
+func TestDBTaskGet(t *testing.T) {
 	t.Run("ExpectedNotFoundError", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedError := sql.ErrNoRows
 
@@ -50,7 +50,7 @@ func TestDBGetTask(t *testing.T) {
 	})))
 }
 
-func TestDBCreateTask(t *testing.T) {
+func TestDBTaskCreate(t *testing.T) {
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedTaskId := 1
 
@@ -62,7 +62,7 @@ func TestDBCreateTask(t *testing.T) {
 		assert.Equal(t, expectedTaskId, actualTaskId)
 	})))
 	t.Run("DuplicateCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		expectedError := db.ErrorDuplicateKey
+		expectedError := db.ErrorTaskDuplicateKey
 		taskId, err := queries.CreateTask(db.DB, TEST_TASK_NAME_1, TEST_TASK_STATE_1)
 		if err != nil || taskId == -1 {
 			t.Errorf("Unable to create task: %s", err)
@@ -73,7 +73,7 @@ func TestDBCreateTask(t *testing.T) {
 	})))
 }
 
-func TestDBGetTasks(t *testing.T) {
+func TestDBTaskGetAll(t *testing.T) {
 	t.Run("ExpectedEmpty", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedArrayLength := 0
 
@@ -153,7 +153,7 @@ func TestDBGetTasks(t *testing.T) {
 	})))
 }
 
-func TestDBUpdateTask(t *testing.T) {
+func TestDBTaskUpdate(t *testing.T) {
 	t.Run("ExpectedNotFoundError", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedError := sql.ErrNoRows
 
@@ -207,15 +207,13 @@ func TestDBUpdateTask(t *testing.T) {
 			t.Errorf("Unable to create task: %s", err)
 		}
 
-		expectedError := fmt.Errorf("error at updating task (Id: %d, Name: '%s', State: '%s'), case after executing statement: %s", taskId, TEST_TASK_NAME_1, TEST_TASK_STATE_1, TaskDuplicateKeyConstraintViolationError)
-
 		actualError := queries.UpdateTask(db.DB, taskId, TEST_TASK_NAME_1, TEST_TASK_STATE_1)
 
-		assert.Equal(t, expectedError, actualError)
+		assert.Equal(t, db.ErrorTaskDuplicateKey, actualError)
 	})))
 }
 
-func TestDBDeleteTask(t *testing.T) {
+func TestDBTaskDelete(t *testing.T) {
 	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		notExistentTaskId := 1
 

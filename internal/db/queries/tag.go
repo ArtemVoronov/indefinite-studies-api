@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	DBService "github.com/ArtemVoronov/indefinite-studies-api/internal/db"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/entities"
 )
 
@@ -56,6 +57,9 @@ func CreateTag(db *sql.DB, name string, state string) (int, error) {
 
 	err := db.QueryRow("INSERT INTO tags(name, state) VALUES($1, $2) RETURNING id", name, state).Scan(&lastInsertId) // scan will release the connection
 	if err != nil {
+		if err.Error() == DBService.ErrorTagDuplicateKey.Error() {
+			return -1, DBService.ErrorTagDuplicateKey
+		}
 		return -1, fmt.Errorf("error at inserting tag (Name: '%s', State: '%s') into db, case after db.QueryRow.Scan: %s", name, state, err)
 	}
 
@@ -69,6 +73,9 @@ func UpdateTag(db *sql.DB, id int, name string, state string) error {
 	}
 	res, err := stmt.Exec(id, name, state, entities.TAG_STATE_DELETED)
 	if err != nil {
+		if err.Error() == DBService.ErrorTagDuplicateKey.Error() {
+			return DBService.ErrorTagDuplicateKey
+		}
 		return fmt.Errorf("error at updating tag (Id: %d, Name: '%s', State: '%s'), case after executing statement: %s", id, name, state, err)
 	}
 
@@ -84,13 +91,21 @@ func UpdateTag(db *sql.DB, id int, name string, state string) error {
 }
 
 func DeleteTag(db *sql.DB, id int) error {
-	stmt, err := db.Prepare("UPDATE tags SET state = $2 WHERE id = $1 and state != $2")
+	// just for keeping the history we will add suffix to name and change state to 'DELETED', because of key constraint (name, state)
+	stmt, err := db.Prepare("UPDATE tags SET name = name||'_deleted_'||$1, state = $2 WHERE id = $1 and state != $2")
 	if err != nil {
 		return fmt.Errorf("error at deleting tag, case after preparing statement: %s", err)
 	}
-	_, err = stmt.Exec(id, entities.TAG_STATE_DELETED)
+	res, err := stmt.Exec(id, entities.TAG_STATE_DELETED)
 	if err != nil {
 		return fmt.Errorf("error at deleting tag by id '%d', case after executing statement: %s", id, err)
+	}
+	affectedRowsCount, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("error at deleting task by id '%d', case after counting affected rows: %s", id, err)
+	}
+	if affectedRowsCount == 0 {
+		return sql.ErrNoRows
 	}
 	return nil
 }

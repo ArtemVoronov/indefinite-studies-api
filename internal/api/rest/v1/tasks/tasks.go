@@ -128,7 +128,7 @@ func CreateTask(c *gin.Context) {
 
 	result, err := queries.CreateTask(db.DB, task.Name, task.State)
 	if err != nil || result == -1 {
-		if err.Error() == db.ErrorDuplicateKey.Error() {
+		if err.Error() == db.ErrorTaskDuplicateKey.Error() {
 			c.JSON(http.StatusBadRequest, api.DUPLICATE_FOUND)
 			return
 		}
@@ -181,7 +181,7 @@ func UpdateTask(c *gin.Context) {
 			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
 			return
 		}
-		if err.Error() == db.ErrorDuplicateKey.Error() {
+		if err.Error() == db.ErrorTaskDuplicateKey.Error() {
 			c.JSON(http.StatusBadRequest, api.DUPLICATE_FOUND)
 			return
 		}
