@@ -101,9 +101,16 @@ func DeleteNote(db *sql.DB, id int) error {
 	if err != nil {
 		return fmt.Errorf("error at deleting note, case after preparing statement: %s", err)
 	}
-	_, err = stmt.Exec(id, entities.NOTE_STATE_DELETED)
+	res, err := stmt.Exec(id, entities.NOTE_STATE_DELETED)
 	if err != nil {
 		return fmt.Errorf("error at deleting note by id '%d', case after executing statement: %s", id, err)
+	}
+	affectedRowsCount, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("error at deleting note by id '%d', case after counting affected rows: %s", id, err)
+	}
+	if affectedRowsCount == 0 {
+		return sql.ErrNoRows
 	}
 	return nil
 }

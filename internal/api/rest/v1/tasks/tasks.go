@@ -2,18 +2,34 @@ package tasks
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
 
+	"github.com/ArtemVoronov/indefinite-studies-api/internal/api"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/validation"
+	"github.com/ArtemVoronov/indefinite-studies-api/internal/app/utils"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db"
+	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/entities"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/queries"
 	"github.com/gin-gonic/gin"
 )
 
+type TaskDTO struct {
+	Id    int
+	Name  string
+	State string
+}
+
+type TaskListDTO struct {
+	Count  int
+	Offset int
+	Limit  int
+	Data   []TaskDTO
+}
+
 type TaskEditDTO struct {
-	Id    int    `json:"id" binding:"required"`
 	Name  string `json:"name" binding:"required"`
 	State string `json:"state" binding:"required"`
 }
@@ -23,53 +39,71 @@ type TaskCreateDTO struct {
 	State string `json:"state" binding:"required"`
 }
 
-func GetTasks(c *gin.Context) {
-	limit := c.DefaultQuery("limit", "50")
-	offset := c.DefaultQuery("offset", "0")
+func convertTasks(tasks []entities.Task) []TaskDTO {
+	if tasks == nil {
+		return make([]TaskDTO, 0)
+	}
+	var result []TaskDTO
+	for _, task := range tasks {
+		result = append(result, convertTask(task))
+	}
+	return result
+}
 
-	if _, err := strconv.Atoi(limit); err != nil {
-		limit = "50"
+func convertTask(task entities.Task) TaskDTO {
+	return TaskDTO{Id: task.Id, Name: task.Name, State: task.State}
+}
+
+func GetTasks(c *gin.Context) {
+	limitStr := c.DefaultQuery("limit", "50")
+	offsetStr := c.DefaultQuery("offset", "0")
+
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil {
+		limit = 50
 	}
 
-	if _, err := strconv.Atoi(offset); err != nil {
-		offset = "0"
+	offset, err := strconv.Atoi(offsetStr)
+	if err != nil {
+		offset = 0
 	}
 
 	tasks, err := queries.GetTasks(db.DB, limit, offset)
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, "Unable to get tasks")
+		c.JSON(http.StatusInternalServerError, "Unable to get tasks")
 		log.Printf("Unable to get to tasks : %s", err)
 		return
 	}
-	c.IndentedJSON(http.StatusOK, tasks)
+	result := &TaskListDTO{Data: convertTasks(tasks), Count: len(tasks), Offset: offset, Limit: limit}
+	c.JSON(http.StatusOK, result)
 }
 
 func GetTask(c *gin.Context) {
-	idStr := c.Param("id")
+	taskIdStr := c.Param("id")
 
-	if idStr == "" {
-		c.IndentedJSON(http.StatusBadRequest, "Missed ID")
+	if taskIdStr == "" {
+		c.JSON(http.StatusBadRequest, "Missed ID")
 		return
 	}
 
-	var id int
+	var taskId int
 	var parseErr error
-	if id, parseErr = strconv.Atoi(idStr); parseErr != nil {
-		c.IndentedJSON(http.StatusBadRequest, "Wrong ID format. Expected number")
+	if taskId, parseErr = strconv.Atoi(taskIdStr); parseErr != nil {
+		c.JSON(http.StatusBadRequest, "Wrong ID format. Expected number")
 		return
 	}
 
-	task, err := queries.GetTask(db.DB, id)
+	task, err := queries.GetTask(db.DB, taskId)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			c.IndentedJSON(http.StatusOK, "NOT_FOUND")
+			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
 		} else {
-			c.IndentedJSON(http.StatusInternalServerError, "Unable to get task")
+			c.JSON(http.StatusInternalServerError, "Unable to get task")
 			log.Printf("Unable to get to task : %s", err)
 		}
 		return
 	}
-	c.IndentedJSON(http.StatusOK, task)
+	c.JSON(http.StatusOK, task)
 }
 
 func CreateTask(c *gin.Context) {
@@ -80,17 +114,47 @@ func CreateTask(c *gin.Context) {
 		return
 	}
 
+	possibleTaskStates := entities.GetPossibleTaskStates()
+	if !utils.Contains(possibleTaskStates, task.State) {
+		errMsg := fmt.Sprintf("Unable to create task. Wrong 'State' value. Possible values: %v", possibleTaskStates)
+		c.JSON(http.StatusBadRequest, errMsg)
+		return
+	}
+
+	if task.State == entities.TASK_STATE_DELETED {
+		c.JSON(http.StatusBadRequest, api.DELETE_VIA_POST_REQUEST_IS_FODBIDDEN)
+		return
+	}
+
 	result, err := queries.CreateTask(db.DB, task.Name, task.State)
 	if err != nil || result == -1 {
-		c.IndentedJSON(http.StatusInternalServerError, "Unable to create task")
+		if err.Error() == db.ErrorTaskDuplicateKey.Error() {
+			c.JSON(http.StatusBadRequest, api.DUPLICATE_FOUND)
+			return
+		}
+		c.JSON(http.StatusInternalServerError, "Unable to create task")
 		log.Printf("Unable to create task : %s", err)
 		return
 
 	}
-	c.IndentedJSON(http.StatusOK, result)
+	c.JSON(http.StatusCreated, result)
 }
 
 func UpdateTask(c *gin.Context) {
+	taskIdStr := c.Param("id")
+
+	if taskIdStr == "" {
+		c.JSON(http.StatusBadRequest, "Missed ID")
+		return
+	}
+
+	var taskId int
+	var parseErr error
+	if taskId, parseErr = strconv.Atoi(taskIdStr); parseErr != nil {
+		c.JSON(http.StatusBadRequest, "Wrong ID format. Expected number")
+		return
+	}
+
 	var task TaskEditDTO
 
 	if err := c.ShouldBindJSON(&task); err != nil {
@@ -98,40 +162,61 @@ func UpdateTask(c *gin.Context) {
 		return
 	}
 
-	err := queries.UpdateTask(db.DB, task.Id, task.Name, task.State)
+	if task.State == entities.TASK_STATE_DELETED {
+		c.JSON(http.StatusBadRequest, api.DELETE_VIA_PUT_REQUEST_IS_FODBIDDEN)
+		return
+	}
+
+	possibleTaskStates := entities.GetPossibleTaskStates()
+	if !utils.Contains(possibleTaskStates, task.State) {
+		errMsg := fmt.Sprintf("Unable to update task. Wrong 'State' value. Possible values: %v", possibleTaskStates)
+		c.JSON(http.StatusBadRequest, errMsg)
+		return
+	}
+
+	err := queries.UpdateTask(db.DB, taskId, task.Name, task.State)
+
 	if err != nil {
 		if err == sql.ErrNoRows {
-			c.IndentedJSON(http.StatusOK, "NOT_FOUND")
-			return
-		} else {
-			c.IndentedJSON(http.StatusInternalServerError, "Unable to create task")
-			log.Printf("Unable to update tasks : %s", err)
+			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
 			return
 		}
-
+		if err.Error() == db.ErrorTaskDuplicateKey.Error() {
+			c.JSON(http.StatusBadRequest, api.DUPLICATE_FOUND)
+			return
+		}
+		c.JSON(http.StatusInternalServerError, "Unable to update task")
+		log.Printf("Unable to update task : %s", err)
+		return
 	}
-	c.IndentedJSON(http.StatusOK, "Done")
+	c.JSON(http.StatusOK, api.DONE)
 }
 
 func DeleteTask(c *gin.Context) {
 	idStr := c.Param("id")
 
 	if idStr == "" {
-		c.IndentedJSON(http.StatusBadRequest, "Missed ID")
+		c.JSON(http.StatusBadRequest, "Missed ID")
 		return
 	}
 
 	var id int
 	var parseErr error
 	if id, parseErr = strconv.Atoi(idStr); parseErr != nil {
-		c.IndentedJSON(http.StatusBadRequest, "Wrong ID format. Expected number")
+		c.JSON(http.StatusBadRequest, "Wrong ID format. Expected number")
 		return
 	}
+
 	err := queries.DeleteTask(db.DB, id)
+
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, "Unable to delete task")
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
+			return
+		}
+		c.JSON(http.StatusInternalServerError, "Unable to delete task")
 		log.Printf("Unable to delete task: %s", err)
 		return
 	}
-	c.IndentedJSON(http.StatusOK, "Done")
+	c.JSON(http.StatusOK, api.DONE)
 }

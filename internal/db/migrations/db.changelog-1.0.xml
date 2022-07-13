@@ -109,7 +109,7 @@
             </column>
         </createTable>
         <addUniqueConstraint tableName="tasks" columnNames="name, state" constraintName="tasks_name_state_unique" />
-        <addUniqueConstraint tableName="users" columnNames="email" constraintName="users_email_unique" />
+        <addUniqueConstraint tableName="users" columnNames="email, state" constraintName="users_email_state_unique" />
         <addUniqueConstraint tableName="tags" columnNames="name, state" constraintName="tags_name_state_unique" />
         <rollback>
             <dropTable tableName="comments"/>

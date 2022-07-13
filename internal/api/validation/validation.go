@@ -17,6 +17,14 @@ func GetValidationMessageForTag(tag string) string {
 	switch tag {
 	case "required":
 		return "This field is required"
+	case "alphaunicode":
+		return "This field should contain unicode alpha characters only"
+	case "alpha":
+		return "This field should contain ASCII alpha characters only"
+	case "numeric":
+		return "This field should contain a basic numeric value only"
+	case "alphanum":
+		return "This field should contain ASCII alphanumeric characters only"
 	}
 	return ""
 }
@@ -32,5 +40,5 @@ func ProcessAndSendValidationErrorMessage(c *gin.Context, err error) {
 		return
 	}
 
-	c.JSON(http.StatusInternalServerError, "Error during parsing of HTTP request body. Please check it format correctness.")
+	c.JSON(http.StatusBadRequest, "Error during parsing of HTTP request body. Please check it format correctness: missed brackets, double quotes, commas, matching of names and data types and etc")
 }

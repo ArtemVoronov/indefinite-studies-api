@@ -6,13 +6,14 @@ package queries_test
 import (
 	"database/sql"
 	"fmt"
+	"strconv"
+	"testing"
+
 	integrationTesting "github.com/ArtemVoronov/indefinite-studies-api/internal/app/testing"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/entities"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/queries"
 	"github.com/stretchr/testify/assert"
-	"strconv"
-	"testing"
 )
 
 const (
@@ -33,7 +34,7 @@ const (
 
 var UserDuplicateKeyConstraintViolationError = fmt.Errorf(DuplicateKeyConstraintViolationError, "users_email_unique")
 
-func TestGetUser(t *testing.T) {
+func TestDBUserGet(t *testing.T) {
 	t.Run("ExpectedNotFoundError", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedError := sql.ErrNoRows
 
@@ -64,7 +65,7 @@ func TestGetUser(t *testing.T) {
 	})))
 }
 
-func TestCreateUser(t *testing.T) {
+func TestDBUserCreate(t *testing.T) {
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedUserId := 1
 
@@ -76,8 +77,6 @@ func TestCreateUser(t *testing.T) {
 		assert.Equal(t, expectedUserId, actualUserId)
 	})))
 	t.Run("DuplicateCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		expectedError := fmt.Errorf("error at inserting user (Login: '%s', Email: '%s') into db, case after db.QueryRow.Scan: %s", TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, UserDuplicateKeyConstraintViolationError)
-
 		userId, err := queries.CreateUser(db.DB, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 		if err != nil || userId == -1 {
 			t.Errorf("Unable to create user: %s", err)
@@ -85,11 +84,11 @@ func TestCreateUser(t *testing.T) {
 
 		_, actualError := queries.CreateUser(db.DB, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 
-		assert.Equal(t, expectedError, actualError)
+		assert.Equal(t, db.ErrorUserDuplicateKey, actualError)
 	})))
 }
 
-func TestGetUsers(t *testing.T) {
+func TestDBUserGetAll(t *testing.T) {
 	t.Run("ExpectedEmpty", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedArrayLength := 0
 
@@ -178,7 +177,7 @@ func TestGetUsers(t *testing.T) {
 	})))
 }
 
-func TestUpdateUser(t *testing.T) {
+func TestDBUserUpdate(t *testing.T) {
 	t.Run("ExpectedNotFoundError", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedError := sql.ErrNoRows
 
@@ -237,38 +236,29 @@ func TestUpdateUser(t *testing.T) {
 		if err != nil || userId == -1 {
 			t.Errorf("Unable to create user: %s", err)
 		}
-		expectedError := fmt.Errorf("error at updating user (Id: %d, Login: '%s', Email: '%s', State: '%s'), case after executing statement: %s", userId, TEST_USER_LOGIN_2, TEST_USER_EMAIL_1, TEST_USER_STATE_2, UserDuplicateKeyConstraintViolationError)
 
-		actualError := queries.UpdateUser(db.DB, userId, TEST_USER_LOGIN_2, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_2, TEST_USER_ROLE_2, TEST_USER_STATE_2)
+		actualError := queries.UpdateUser(db.DB, userId, TEST_USER_LOGIN_2, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_2, TEST_USER_ROLE_2, TEST_USER_STATE_1)
 
-		assert.Equal(t, expectedError, actualError)
+		assert.Equal(t, db.ErrorUserDuplicateKey, actualError)
 	})))
 }
 
-func TestDeleteUser(t *testing.T) {
+func TestDBUserDelete(t *testing.T) {
 	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		notExistentUserId := 1
-
-		actualError := queries.DeleteUser(db.DB, notExistentUserId)
-		if actualError != nil {
-			t.Errorf("Unable to delete user: %s", actualError)
-		}
+		err := queries.DeleteUser(db.DB, notExistentUserId)
+		assert.Equal(t, sql.ErrNoRows, err)
 	})))
 	t.Run("AlreadyDeletedCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		userId, err := queries.CreateUser(db.DB, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
-		if err != nil || userId == -1 {
-			t.Errorf("Unable to create user: %s", err)
-		}
+		assert.Nil(t, err)
+		assert.NotEqual(t, userId, -1)
 
 		err = queries.DeleteUser(db.DB, userId)
-		if err != nil {
-			t.Errorf("Unable to delete user: %s", err)
-		}
+		assert.Nil(t, err)
 
-		actualError := queries.DeleteUser(db.DB, userId)
-		if actualError != nil {
-			t.Errorf("Unable to delete user: %s", actualError)
-		}
+		err = queries.DeleteUser(db.DB, userId)
+		assert.Equal(t, sql.ErrNoRows, err)
 	})))
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedFirstUserId := 1

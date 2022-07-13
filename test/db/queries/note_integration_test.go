@@ -5,13 +5,14 @@ package queries_test
 
 import (
 	"database/sql"
+	"strconv"
+	"testing"
+
 	integrationTesting "github.com/ArtemVoronov/indefinite-studies-api/internal/app/testing"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/entities"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/queries"
 	"github.com/stretchr/testify/assert"
-	"strconv"
-	"testing"
 )
 
 const (
@@ -26,7 +27,7 @@ const (
 	TEST_NOTE_TOPIC_TEMPLATE string = "Test topic"
 )
 
-func TestGetNote(t *testing.T) {
+func TestDBNoteGet(t *testing.T) {
 	t.Run("ExpectedNotFoundError", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedError := sql.ErrNoRows
 
@@ -62,7 +63,7 @@ func TestGetNote(t *testing.T) {
 	})))
 }
 
-func TestCreateNote(t *testing.T) {
+func TestDBNoteCreate(t *testing.T) {
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedNoteId := 1
 
@@ -85,7 +86,7 @@ func TestCreateNote(t *testing.T) {
 	})))
 }
 
-func TestGetNotes(t *testing.T) {
+func TestDBNoteGetAll(t *testing.T) {
 	t.Run("ExpectedEmpty", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedArrayLength := 0
 
@@ -202,7 +203,7 @@ func TestGetNotes(t *testing.T) {
 	})))
 }
 
-func TestUpdateNote(t *testing.T) {
+func TestDBNoteUpdate(t *testing.T) {
 	t.Run("ExpectedNotFoundError", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedError := sql.ErrNoRows
 
@@ -282,40 +283,30 @@ func TestUpdateNote(t *testing.T) {
 	})))
 }
 
-func TestDeleteNote(t *testing.T) {
+func TestDBNoteDelete(t *testing.T) {
 	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		notExistentNoteId := 1
-
-		actualError := queries.DeleteNote(db.DB, notExistentNoteId)
-		if actualError != nil {
-			t.Errorf("Unable to delete note: %s", actualError)
-		}
+		err := queries.DeleteNote(db.DB, notExistentNoteId)
+		assert.Equal(t, sql.ErrNoRows, err)
 	})))
 	t.Run("AlreadyDeletedCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		userId, err := queries.CreateUser(db.DB, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
-		if err != nil || userId == -1 {
-			t.Errorf("Unable to create user: %s", err)
-		}
+		assert.Nil(t, err)
+		assert.NotEqual(t, userId, -1)
 
 		tagId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
-		if err != nil || tagId == -1 {
-			t.Errorf("Unable to create tag: %s", err)
-		}
+		assert.Nil(t, err)
+		assert.NotEqual(t, tagId, -1)
 
 		noteId, err := queries.CreateNote(db.DB, TEST_NOTE_TEXT_1, TEST_NOTE_TOPIC_1, tagId, userId, TEST_NOTE_STATE_1)
-		if err != nil || noteId == -1 {
-			t.Errorf("Unable to create note: %s", err)
-		}
+		assert.Nil(t, err)
+		assert.NotEqual(t, noteId, -1)
 
 		err = queries.DeleteNote(db.DB, noteId)
-		if err != nil {
-			t.Errorf("Unable to delete note: %s", err)
-		}
+		assert.Nil(t, err)
 
-		actualError := queries.DeleteNote(db.DB, noteId)
-		if actualError != nil {
-			t.Errorf("Unable to delete note: %s", actualError)
-		}
+		err = queries.DeleteNote(db.DB, noteId)
+		assert.Equal(t, sql.ErrNoRows, err)
 	})))
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedFirstNoteId := 1
