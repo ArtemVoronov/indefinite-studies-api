@@ -43,10 +43,11 @@ func main() {
 	{
 		v1.GET("/debug/vars", expvar.Handler())
 		v1.GET("/ping", ping.Ping)
+
 		v1.GET("/tasks/", tasks.GetTasks)
 		v1.GET("/tasks/:id", tasks.GetTask)
 		v1.POST("/tasks/", tasks.CreateTask)
-		v1.PUT("/tasks/", tasks.UpdateTask)
+		v1.PUT("/tasks/:id", tasks.UpdateTask)
 		v1.DELETE("/tasks/:id", tasks.DeleteTask)
 	}
 

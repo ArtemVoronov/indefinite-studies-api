@@ -26,7 +26,7 @@ const (
 
 var TaskDuplicateKeyConstraintViolationError = fmt.Errorf(DuplicateKeyConstraintViolationError, "tasks_name_state_unique")
 
-func TestGetTask(t *testing.T) {
+func TestDBGetTask(t *testing.T) {
 	t.Run("ExpectedNotFoundError", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedError := sql.ErrNoRows
 
@@ -50,7 +50,7 @@ func TestGetTask(t *testing.T) {
 	})))
 }
 
-func TestCreateTask(t *testing.T) {
+func TestDBCreateTask(t *testing.T) {
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedTaskId := 1
 
@@ -62,8 +62,7 @@ func TestCreateTask(t *testing.T) {
 		assert.Equal(t, expectedTaskId, actualTaskId)
 	})))
 	t.Run("DuplicateCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		expectedError := fmt.Errorf("error at inserting task (Name: '%s', State: '%s') into db, case after db.QueryRow.Scan: %s", TEST_TASK_NAME_1, TEST_TASK_STATE_1, TaskDuplicateKeyConstraintViolationError)
-
+		expectedError := db.ErrorDuplicateKey
 		taskId, err := queries.CreateTask(db.DB, TEST_TASK_NAME_1, TEST_TASK_STATE_1)
 		if err != nil || taskId == -1 {
 			t.Errorf("Unable to create task: %s", err)
@@ -74,11 +73,11 @@ func TestCreateTask(t *testing.T) {
 	})))
 }
 
-func TestGetTasks(t *testing.T) {
+func TestDBGetTasks(t *testing.T) {
 	t.Run("ExpectedEmpty", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedArrayLength := 0
 
-		tasks, err := queries.GetTasks(db.DB, "50", "0")
+		tasks, err := queries.GetTasks(db.DB, 50, 0)
 		if err != nil {
 			t.Errorf("Unable to get to tasks : %s", err)
 		}
@@ -95,7 +94,7 @@ func TestGetTasks(t *testing.T) {
 				t.Errorf("Unable to create task: %s", err)
 			}
 		}
-		tasks, err := queries.GetTasks(db.DB, "50", "0")
+		tasks, err := queries.GetTasks(db.DB, 50, 0)
 		if err != nil {
 			t.Errorf("Unable to get to tasks : %s", err)
 		}
@@ -117,7 +116,7 @@ func TestGetTasks(t *testing.T) {
 			}
 		}
 
-		tasks, err := queries.GetTasks(db.DB, "5", "0")
+		tasks, err := queries.GetTasks(db.DB, 5, 0)
 		if err != nil {
 			t.Errorf("Unable to get to tasks : %s", err)
 		}
@@ -139,7 +138,7 @@ func TestGetTasks(t *testing.T) {
 			}
 		}
 
-		tasks, err := queries.GetTasks(db.DB, "50", "5")
+		tasks, err := queries.GetTasks(db.DB, 50, 5)
 		if err != nil {
 			t.Errorf("Unable to get to tasks : %s", err)
 		}
@@ -154,7 +153,7 @@ func TestGetTasks(t *testing.T) {
 	})))
 }
 
-func TestUpdateTask(t *testing.T) {
+func TestDBUpdateTask(t *testing.T) {
 	t.Run("ExpectedNotFoundError", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedError := sql.ErrNoRows
 
@@ -216,30 +215,24 @@ func TestUpdateTask(t *testing.T) {
 	})))
 }
 
-func TestDeleteTask(t *testing.T) {
+func TestDBDeleteTask(t *testing.T) {
 	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		notExistentTaskId := 1
 
 		actualError := queries.DeleteTask(db.DB, notExistentTaskId)
-		if actualError != nil {
-			t.Errorf("Unable to delete task: %s", actualError)
-		}
+
+		assert.Equal(t, sql.ErrNoRows, actualError)
 	})))
 	t.Run("AlreadyDeletedCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		taskId, err := queries.CreateTask(db.DB, TEST_TASK_NAME_1, TEST_TASK_STATE_1)
-		if err != nil || taskId == -1 {
-			t.Errorf("Unable to create task: %s", err)
-		}
+		assert.Nil(t, err)
+		assert.NotEqual(t, taskId, -1)
 
 		err = queries.DeleteTask(db.DB, taskId)
-		if err != nil {
-			t.Errorf("Unable to delete task: %s", err)
-		}
+		assert.Nil(t, err)
 
-		actualError := queries.DeleteTask(db.DB, taskId)
-		if actualError != nil {
-			t.Errorf("Unable to delete task: %s", actualError)
-		}
+		err = queries.DeleteTask(db.DB, taskId)
+		assert.Equal(t, sql.ErrNoRows, err)
 	})))
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedFirstTaskId := 1
@@ -250,21 +243,16 @@ func TestDeleteTask(t *testing.T) {
 		taskIdToDelete := 2
 		for i := 0; i < 3; i++ {
 			taskId, err := queries.CreateTask(db.DB, TEST_TASK_NAME_TEMPLATE+strconv.Itoa(i), entities.TASK_STATE_NEW)
-			if err != nil || taskId == -1 {
-				t.Errorf("Unable to create task: %s", err)
-			}
+			assert.Nil(t, err)
+			assert.NotEqual(t, taskId, -1)
 		}
 
 		err := queries.DeleteTask(db.DB, taskIdToDelete)
-		if err != nil {
-			t.Errorf("Unable to delete task: %s", err)
-		}
+		assert.Nil(t, err)
 
-		tasks, err := queries.GetTasks(db.DB, "50", "0")
-		if err != nil {
-			t.Errorf("Unable to get to tasks : %s", err)
-		}
+		tasks, err := queries.GetTasks(db.DB, 50, 0)
 		actualArrayLength := len(tasks)
+		assert.Nil(t, err)
 
 		assert.Equal(t, expectedArrayLength, actualArrayLength)
 

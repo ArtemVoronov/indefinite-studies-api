@@ -21,7 +21,7 @@ func setupRouter() *gin.Engine {
 	return r
 }
 
-func TestPingRoute(t *testing.T) {
+func TestApiPing(t *testing.T) {
 	r := setupRouter()
 
 	w := httptest.NewRecorder()

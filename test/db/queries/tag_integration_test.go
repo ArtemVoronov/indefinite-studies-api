@@ -26,7 +26,7 @@ const (
 
 var TagDuplicateKeyConstraintViolationError = fmt.Errorf(DuplicateKeyConstraintViolationError, "tags_name_state_unique")
 
-func TestGetTag(t *testing.T) {
+func TestDBGetTag(t *testing.T) {
 	t.Run("ExpectedNotFoundError", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedError := sql.ErrNoRows
 
@@ -50,7 +50,7 @@ func TestGetTag(t *testing.T) {
 	})))
 }
 
-func TestCreateTag(t *testing.T) {
+func TestDBCreateTag(t *testing.T) {
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedTagId := 1
 
@@ -74,7 +74,7 @@ func TestCreateTag(t *testing.T) {
 	})))
 }
 
-func TestGetTags(t *testing.T) {
+func TestDBGetTags(t *testing.T) {
 	t.Run("ExpectedEmpty", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedArrayLength := 0
 
@@ -154,7 +154,7 @@ func TestGetTags(t *testing.T) {
 	})))
 }
 
-func TestUpdateTag(t *testing.T) {
+func TestDBUpdateTag(t *testing.T) {
 	t.Run("ExpectedNotFoundError", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedError := sql.ErrNoRows
 
@@ -216,7 +216,7 @@ func TestUpdateTag(t *testing.T) {
 	})))
 }
 
-func TestDeleteTag(t *testing.T) {
+func TestDBDeleteTag(t *testing.T) {
 	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		notExistentTagId := 1
 

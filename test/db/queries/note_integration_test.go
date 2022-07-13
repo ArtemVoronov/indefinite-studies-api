@@ -27,7 +27,7 @@ const (
 	TEST_NOTE_TOPIC_TEMPLATE string = "Test topic"
 )
 
-func TestGetNote(t *testing.T) {
+func TestDBGetNote(t *testing.T) {
 	t.Run("ExpectedNotFoundError", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedError := sql.ErrNoRows
 
@@ -63,7 +63,7 @@ func TestGetNote(t *testing.T) {
 	})))
 }
 
-func TestCreateNote(t *testing.T) {
+func TestDBCreateNote(t *testing.T) {
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedNoteId := 1
 
@@ -86,7 +86,7 @@ func TestCreateNote(t *testing.T) {
 	})))
 }
 
-func TestGetNotes(t *testing.T) {
+func TestDBGetNotes(t *testing.T) {
 	t.Run("ExpectedEmpty", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedArrayLength := 0
 
@@ -203,7 +203,7 @@ func TestGetNotes(t *testing.T) {
 	})))
 }
 
-func TestUpdateNote(t *testing.T) {
+func TestDBUpdateNote(t *testing.T) {
 	t.Run("ExpectedNotFoundError", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedError := sql.ErrNoRows
 
@@ -283,7 +283,7 @@ func TestUpdateNote(t *testing.T) {
 	})))
 }
 
-func TestDeleteNote(t *testing.T) {
+func TestDBDeleteNote(t *testing.T) {
 	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		notExistentNoteId := 1
 
