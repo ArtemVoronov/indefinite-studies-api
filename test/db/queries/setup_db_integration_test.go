@@ -10,8 +10,6 @@ import (
 	integrationTesting "github.com/ArtemVoronov/indefinite-studies-api/internal/app/testing"
 )
 
-var DuplicateKeyConstraintViolationError string = "pq: duplicate key value violates unique constraint \"%s\""
-
 func TestMain(m *testing.M) {
 	integrationTesting.Setup()
 	code := m.Run()

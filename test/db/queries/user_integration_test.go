@@ -5,7 +5,6 @@ package queries_test
 
 import (
 	"database/sql"
-	"fmt"
 	"strconv"
 	"testing"
 
@@ -31,8 +30,6 @@ const (
 	TEST_USER_LOGIN_TEMPLATE string = "Test user "
 	TEST_USER_EMAIL_TEMPLATE string = "@somewhere.com"
 )
-
-var UserDuplicateKeyConstraintViolationError = fmt.Errorf(DuplicateKeyConstraintViolationError, "users_email_unique")
 
 func TestDBUserGet(t *testing.T) {
 	t.Run("ExpectedNotFoundError", integrationTesting.RunWithRecreateDB((func(t *testing.T) {

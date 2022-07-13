@@ -5,7 +5,6 @@ package queries_test
 
 import (
 	"database/sql"
-	"fmt"
 	"strconv"
 	"testing"
 
@@ -24,8 +23,6 @@ const (
 	TEST_TAG_NAME_TEMPLATE string = "Test tag "
 )
 
-var TagDuplicateKeyConstraintViolationError = fmt.Errorf(DuplicateKeyConstraintViolationError, "tags_name_state_unique")
-
 func TestDBTagGet(t *testing.T) {
 	t.Run("ExpectedNotFoundError", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedError := sql.ErrNoRows
@@ -38,9 +35,8 @@ func TestDBTagGet(t *testing.T) {
 		expectedName := TEST_TAG_NAME_1
 		expectedState := TEST_TAG_STATE_1
 		expectedId, err := queries.CreateTag(db.DB, expectedName, expectedState)
-		if err != nil || expectedId == -1 {
-			t.Errorf("Unable to create tag: %s", err)
-		}
+		assert.Nil(t, err)
+		assert.NotEqual(t, expectedId, -1)
 
 		actual, err := queries.GetTag(db.DB, expectedId)
 
