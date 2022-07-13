@@ -34,7 +34,7 @@ const (
 
 var UserDuplicateKeyConstraintViolationError = fmt.Errorf(DuplicateKeyConstraintViolationError, "users_email_unique")
 
-func TestDBGetUser(t *testing.T) {
+func TestDBUserGet(t *testing.T) {
 	t.Run("ExpectedNotFoundError", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedError := sql.ErrNoRows
 
@@ -65,7 +65,7 @@ func TestDBGetUser(t *testing.T) {
 	})))
 }
 
-func TestDBCreateUser(t *testing.T) {
+func TestDBUserCreate(t *testing.T) {
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedUserId := 1
 
@@ -90,7 +90,7 @@ func TestDBCreateUser(t *testing.T) {
 	})))
 }
 
-func TestDBGetUsers(t *testing.T) {
+func TestDBUserGetAll(t *testing.T) {
 	t.Run("ExpectedEmpty", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedArrayLength := 0
 
@@ -179,7 +179,7 @@ func TestDBGetUsers(t *testing.T) {
 	})))
 }
 
-func TestDBUpdateUser(t *testing.T) {
+func TestDBUserUpdate(t *testing.T) {
 	t.Run("ExpectedNotFoundError", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedError := sql.ErrNoRows
 
@@ -246,7 +246,7 @@ func TestDBUpdateUser(t *testing.T) {
 	})))
 }
 
-func TestDBDeleteUser(t *testing.T) {
+func TestDBUserDelete(t *testing.T) {
 	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		notExistentUserId := 1
 
