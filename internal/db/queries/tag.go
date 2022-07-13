@@ -102,7 +102,7 @@ func DeleteTag(db *sql.DB, id int) error {
 	}
 	affectedRowsCount, err := res.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("error at deleting task by id '%d', case after counting affected rows: %s", id, err)
+		return fmt.Errorf("error at deleting tag by id '%d', case after counting affected rows: %s", id, err)
 	}
 	if affectedRowsCount == 0 {
 		return sql.ErrNoRows
