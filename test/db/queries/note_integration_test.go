@@ -24,8 +24,42 @@ const (
 	TEST_NOTE_STATE_2 string = entities.NOTE_STATE_NEW
 
 	TEST_NOTE_TEXT_TEMPLATE  string = "Test text "
-	TEST_NOTE_TOPIC_TEMPLATE string = "Test topic"
+	TEST_NOTE_TOPIC_TEMPLATE string = "Test topic "
 )
+
+func AssertEqualNotes(t *testing.T, expected entities.Note, actual entities.Note) {
+	assert.Equal(t, expected.Id, actual.Id)
+	assert.Equal(t, expected.Text, actual.Text)
+	assert.Equal(t, expected.Topic, actual.Topic)
+	assert.Equal(t, expected.TagId, actual.TagId)
+	assert.Equal(t, expected.UserId, actual.UserId)
+	assert.Equal(t, expected.State, actual.State)
+	assert.Equal(t, expected.CreateDate, actual.CreateDate)
+	assert.Equal(t, expected.LastUpdateDate, actual.LastUpdateDate)
+}
+
+func AssertEqualNoteArrays(t *testing.T, expected []entities.Note, actual []entities.Note) {
+	assert.Equal(t, len(expected), len(actual))
+
+	length := len(expected)
+	for i := 0; i < length; i++ {
+		AssertEqualNotes(t, expected[i], actual[i])
+	}
+}
+
+func CreateNoteInDB(t *testing.T, text string, topic string, tagId int, userId int, state string) {
+	noteId, err := queries.CreateNote(db.DB, text, topic, tagId, userId, state)
+	assert.Nil(t, err)
+	assert.NotEqual(t, noteId, -1)
+}
+
+func CreateNotesInDB(t *testing.T, count int, textTemplate string, topicTemplate string, tagId int, userId int, state string) {
+	for i := 1; i <= count; i++ {
+		CreateNoteInDB(t, textTemplate+strconv.Itoa(i), topicTemplate+strconv.Itoa(i), tagId, userId, state)
+	}
+}
+
+// TODO: finish refactoring
 
 func TestDBNoteGet(t *testing.T) {
 	t.Run("ExpectedNotFoundError", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
@@ -90,7 +124,7 @@ func TestDBNoteGetAll(t *testing.T) {
 	t.Run("ExpectedEmpty", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedArrayLength := 0
 
-		notes, err := queries.GetNotes(db.DB, "50", "0")
+		notes, err := queries.GetNotes(db.DB, 50, 0)
 		if err != nil {
 			t.Errorf("Unable to get to notes : %s", err)
 		}
@@ -116,7 +150,7 @@ func TestDBNoteGetAll(t *testing.T) {
 				t.Errorf("Unable to create note: %s", err)
 			}
 		}
-		notes, err := queries.GetNotes(db.DB, "50", "0")
+		notes, err := queries.GetNotes(db.DB, 50, 0)
 		if err != nil {
 			t.Errorf("Unable to get to notes : %s", err)
 		}
@@ -151,7 +185,7 @@ func TestDBNoteGetAll(t *testing.T) {
 			}
 		}
 
-		notes, err := queries.GetNotes(db.DB, "5", "0")
+		notes, err := queries.GetNotes(db.DB, 5, 0)
 		if err != nil {
 			t.Errorf("Unable to get to notes : %s", err)
 		}
@@ -185,7 +219,7 @@ func TestDBNoteGetAll(t *testing.T) {
 			}
 		}
 
-		notes, err := queries.GetNotes(db.DB, "50", "5")
+		notes, err := queries.GetNotes(db.DB, 50, 5)
 		if err != nil {
 			t.Errorf("Unable to get to notes : %s", err)
 		}
@@ -337,7 +371,7 @@ func TestDBNoteDelete(t *testing.T) {
 			t.Errorf("Unable to delete note: %s", err)
 		}
 
-		notes, err := queries.GetNotes(db.DB, "50", "0")
+		notes, err := queries.GetNotes(db.DB, 50, 0)
 		if err != nil {
 			t.Errorf("Unable to get to notes : %s", err)
 		}

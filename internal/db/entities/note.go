@@ -17,3 +17,7 @@ const (
 	NOTE_STATE_NEW     string = "NEW"
 	NOTE_STATE_DELETED string = "DELETED"
 )
+
+func GetPossibleNoteStates() []string {
+	return []string{NOTE_STATE_NEW, NOTE_STATE_DELETED}
+}

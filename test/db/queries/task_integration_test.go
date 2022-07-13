@@ -46,9 +46,7 @@ func CreateTaskInDB(t *testing.T, name string, state string) {
 
 func CreateTasksInDB(t *testing.T, count int, nameTemplate string, state string) {
 	for i := 1; i <= count; i++ {
-		taskId, err := queries.CreateTask(db.DB, nameTemplate+strconv.Itoa(i), state)
-		assert.Nil(t, err)
-		assert.NotEqual(t, taskId, -1)
+		CreateTaskInDB(t, nameTemplate+strconv.Itoa(i), state)
 	}
 }
 

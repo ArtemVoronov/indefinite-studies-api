@@ -46,9 +46,7 @@ func CreateTagInDB(t *testing.T, name string, state string) {
 
 func CreateTagsInDB(t *testing.T, count int, nameTemplate string, state string) {
 	for i := 1; i <= count; i++ {
-		tagId, err := queries.CreateTag(db.DB, nameTemplate+strconv.Itoa(i), state)
-		assert.Nil(t, err)
-		assert.NotEqual(t, tagId, -1)
+		CreateTagInDB(t, nameTemplate+strconv.Itoa(i), state)
 	}
 }
 

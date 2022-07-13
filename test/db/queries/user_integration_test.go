@@ -31,6 +31,39 @@ const (
 	TEST_USER_EMAIL_TEMPLATE string = "@somewhere.com"
 )
 
+func AssertEqualUsers(t *testing.T, expected entities.User, actual entities.User) {
+	assert.Equal(t, expected.Id, actual.Id)
+	assert.Equal(t, expected.Login, actual.Login)
+	assert.Equal(t, expected.Email, actual.Email)
+	assert.Equal(t, expected.Password, actual.Password)
+	assert.Equal(t, expected.State, actual.State)
+	assert.Equal(t, expected.CreateDate, actual.CreateDate)
+	assert.Equal(t, expected.LastUpdateDate, actual.LastUpdateDate)
+}
+
+func AssertEqualUserArrays(t *testing.T, expected []entities.User, actual []entities.User) {
+	assert.Equal(t, len(expected), len(actual))
+
+	length := len(expected)
+	for i := 0; i < length; i++ {
+		AssertEqualUsers(t, expected[i], actual[i])
+	}
+}
+
+func CreateUserInDB(t *testing.T, login string, email string, password string, role string, state string) {
+	userId, err := queries.CreateUser(db.DB, login, email, password, role, state)
+	assert.Nil(t, err)
+	assert.NotEqual(t, userId, -1)
+}
+
+func CreateUsersInDB(t *testing.T, count int, loginTemplate string, emailTemplate string, password string, role string, state string) {
+	for i := 1; i <= count; i++ {
+		CreateUserInDB(t, loginTemplate+strconv.Itoa(i), "user"+strconv.Itoa(i)+emailTemplate, password, role, state)
+	}
+}
+
+// TODO: finish refactoring
+
 func TestDBUserGet(t *testing.T) {
 	t.Run("ExpectedNotFoundError", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedError := sql.ErrNoRows
@@ -89,7 +122,7 @@ func TestDBUserGetAll(t *testing.T) {
 	t.Run("ExpectedEmpty", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedArrayLength := 0
 
-		users, err := queries.GetUsers(db.DB, "50", "0")
+		users, err := queries.GetUsers(db.DB, 50, 0)
 		if err != nil {
 			t.Errorf("Unable to get to users : %s", err)
 		}
@@ -106,7 +139,7 @@ func TestDBUserGetAll(t *testing.T) {
 				t.Errorf("Unable to create user: %s", err)
 			}
 		}
-		users, err := queries.GetUsers(db.DB, "50", "0")
+		users, err := queries.GetUsers(db.DB, 50, 0)
 		if err != nil {
 			t.Errorf("Unable to get to users : %s", err)
 		}
@@ -131,7 +164,7 @@ func TestDBUserGetAll(t *testing.T) {
 			}
 		}
 
-		users, err := queries.GetUsers(db.DB, "5", "0")
+		users, err := queries.GetUsers(db.DB, 5, 0)
 		if err != nil {
 			t.Errorf("Unable to get to users : %s", err)
 		}
@@ -156,7 +189,7 @@ func TestDBUserGetAll(t *testing.T) {
 			}
 		}
 
-		users, err := queries.GetUsers(db.DB, "50", "5")
+		users, err := queries.GetUsers(db.DB, 50, 5)
 		if err != nil {
 			t.Errorf("Unable to get to users : %s", err)
 		}
@@ -278,7 +311,7 @@ func TestDBUserDelete(t *testing.T) {
 			t.Errorf("Unable to delete user: %s", err)
 		}
 
-		users, err := queries.GetUsers(db.DB, "50", "0")
+		users, err := queries.GetUsers(db.DB, 50, 0)
 		if err != nil {
 			t.Errorf("Unable to get to users : %s", err)
 		}
