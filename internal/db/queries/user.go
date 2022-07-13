@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	DBService "github.com/ArtemVoronov/indefinite-studies-api/internal/db"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/entities"
 )
 
@@ -68,6 +69,9 @@ func CreateUser(db *sql.DB, login string, email string, password string, role st
 		login, email, password, role, state, createDate, lastUpdateDate).
 		Scan(&lastInsertId) // scan will release the connection
 	if err != nil {
+		if err.Error() == DBService.ErrorUserDuplicateKey.Error() {
+			return -1, DBService.ErrorUserDuplicateKey
+		}
 		return -1, fmt.Errorf("error at inserting user (Login: '%s', Email: '%s') into db, case after db.QueryRow.Scan: %s", login, email, err)
 	}
 
@@ -82,6 +86,9 @@ func UpdateUser(db *sql.DB, id int, login string, email string, password string,
 	}
 	res, err := stmt.Exec(id, login, email, password, role, state, lastUpdateDate, entities.USER_STATE_DELETED)
 	if err != nil {
+		if err.Error() == DBService.ErrorUserDuplicateKey.Error() {
+			return DBService.ErrorUserDuplicateKey
+		}
 		return fmt.Errorf("error at updating user (Id: %d, Login: '%s', Email: '%s', State: '%s'), case after executing statement: %s", id, login, email, state, err)
 	}
 
@@ -97,13 +104,21 @@ func UpdateUser(db *sql.DB, id int, login string, email string, password string,
 }
 
 func DeleteUser(db *sql.DB, id int) error {
-	stmt, err := db.Prepare("UPDATE users SET state = $2 WHERE id = $1 and state != $2")
+	// just for keeping the history we will add suffix to name and change state to 'DELETED', because of key constraint (email, state)
+	stmt, err := db.Prepare("UPDATE users SET email = email||'_deleted_'||$1, state = $2 WHERE id = $1 and state != $2")
 	if err != nil {
 		return fmt.Errorf("error at deleting user, case after preparing statement: %s", err)
 	}
-	_, err = stmt.Exec(id, entities.USER_STATE_DELETED)
+	res, err := stmt.Exec(id, entities.USER_STATE_DELETED)
 	if err != nil {
 		return fmt.Errorf("error at deleting user by id '%d', case after executing statement: %s", id, err)
+	}
+	affectedRowsCount, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("error at deleting user by id '%d', case after counting affected rows: %s", id, err)
+	}
+	if affectedRowsCount == 0 {
+		return sql.ErrNoRows
 	}
 	return nil
 }

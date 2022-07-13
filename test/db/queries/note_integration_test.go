@@ -286,37 +286,27 @@ func TestDBNoteUpdate(t *testing.T) {
 func TestDBNoteDelete(t *testing.T) {
 	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		notExistentNoteId := 1
-
-		actualError := queries.DeleteNote(db.DB, notExistentNoteId)
-		if actualError != nil {
-			t.Errorf("Unable to delete note: %s", actualError)
-		}
+		err := queries.DeleteNote(db.DB, notExistentNoteId)
+		assert.Equal(t, sql.ErrNoRows, err)
 	})))
 	t.Run("AlreadyDeletedCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		userId, err := queries.CreateUser(db.DB, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
-		if err != nil || userId == -1 {
-			t.Errorf("Unable to create user: %s", err)
-		}
+		assert.Nil(t, err)
+		assert.NotEqual(t, userId, -1)
 
 		tagId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
-		if err != nil || tagId == -1 {
-			t.Errorf("Unable to create tag: %s", err)
-		}
+		assert.Nil(t, err)
+		assert.NotEqual(t, tagId, -1)
 
 		noteId, err := queries.CreateNote(db.DB, TEST_NOTE_TEXT_1, TEST_NOTE_TOPIC_1, tagId, userId, TEST_NOTE_STATE_1)
-		if err != nil || noteId == -1 {
-			t.Errorf("Unable to create note: %s", err)
-		}
+		assert.Nil(t, err)
+		assert.NotEqual(t, noteId, -1)
 
 		err = queries.DeleteNote(db.DB, noteId)
-		if err != nil {
-			t.Errorf("Unable to delete note: %s", err)
-		}
+		assert.Nil(t, err)
 
-		actualError := queries.DeleteNote(db.DB, noteId)
-		if actualError != nil {
-			t.Errorf("Unable to delete note: %s", actualError)
-		}
+		err = queries.DeleteNote(db.DB, noteId)
+		assert.Equal(t, sql.ErrNoRows, err)
 	})))
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedFirstNoteId := 1
