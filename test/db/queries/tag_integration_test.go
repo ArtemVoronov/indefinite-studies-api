@@ -23,184 +23,167 @@ const (
 	TEST_TAG_NAME_TEMPLATE string = "Test tag "
 )
 
-func TestDBTagGet(t *testing.T) {
-	t.Run("ExpectedNotFoundError", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		expectedError := sql.ErrNoRows
+func AssertEqualTags(t *testing.T, expected entities.Tag, actual entities.Tag) {
+	assert.Equal(t, expected.Id, actual.Id)
+	assert.Equal(t, expected.Name, actual.Name)
+	assert.Equal(t, expected.State, actual.State)
+}
 
-		_, actualError := queries.GetTag(db.DB, 1)
+func AssertEqualTagArrays(t *testing.T, expected []entities.Tag, actual []entities.Tag) {
+	assert.Equal(t, len(expected), len(actual))
 
-		assert.Equal(t, expectedError, actualError)
-	})))
-	t.Run("ExpectedResult", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		expectedName := TEST_TAG_NAME_1
-		expectedState := TEST_TAG_STATE_1
-		expectedId, err := queries.CreateTag(db.DB, expectedName, expectedState)
+	length := len(expected)
+	for i := 0; i < length; i++ {
+		AssertEqualTags(t, expected[i], actual[i])
+	}
+}
+
+func CreateTagInDB(t *testing.T, name string, state string) {
+	tagId, err := queries.CreateTag(db.DB, name, state)
+	assert.Nil(t, err)
+	assert.NotEqual(t, tagId, -1)
+}
+
+func CreateTagsInDB(t *testing.T, count int, nameTemplate string, state string) {
+	for i := 1; i <= count; i++ {
+		tagId, err := queries.CreateTag(db.DB, nameTemplate+strconv.Itoa(i), state)
 		assert.Nil(t, err)
-		assert.NotEqual(t, expectedId, -1)
+		assert.NotEqual(t, tagId, -1)
+	}
+}
 
-		actual, err := queries.GetTag(db.DB, expectedId)
+func TestDBTagGet(t *testing.T) {
+	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+		_, err := queries.GetTag(db.DB, 1)
 
-		assert.Equal(t, expectedId, actual.Id)
-		assert.Equal(t, expectedName, actual.Name)
-		assert.Equal(t, expectedState, actual.State)
+		assert.Equal(t, sql.ErrNoRows, err)
+	})))
+	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+		expected := entities.Tag{Id: 1, Name: TEST_TAG_NAME_1, State: TEST_TAG_STATE_1}
+
+		tagId, err := queries.CreateTag(db.DB, expected.Name, expected.State)
+
+		assert.Nil(t, err)
+		assert.Equal(t, tagId, expected.Id)
+
+		actual, err := queries.GetTag(db.DB, tagId)
+
+		AssertEqualTags(t, expected, actual)
 	})))
 }
 
 func TestDBTagCreate(t *testing.T) {
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		expectedTagId := 1
+		tagId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
-		actualTagId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
-		if err != nil || actualTagId == -1 {
-			t.Errorf("Unable to create tag: %s", err)
-		}
-
-		assert.Equal(t, expectedTagId, actualTagId)
+		assert.Nil(t, err)
+		assert.Equal(t, tagId, 1)
 	})))
 	t.Run("DuplicateCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		tagId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
-		if err != nil || tagId == -1 {
-			t.Errorf("Unable to create tag: %s", err)
-		}
-		_, actualError := queries.CreateTag(db.DB, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
-		assert.Equal(t, db.ErrorTagDuplicateKey, actualError)
+		assert.Nil(t, err)
+		assert.NotEqual(t, tagId, -1)
+
+		_, err = queries.CreateTag(db.DB, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+
+		assert.Equal(t, db.ErrorTagDuplicateKey, err)
 	})))
 }
 
 func TestDBTagGetAll(t *testing.T) {
 	t.Run("ExpectedEmpty", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		expectedArrayLength := 0
+		tags, err := queries.GetTags(db.DB, 50, 0)
 
-		tags, err := queries.GetTags(db.DB, "50", "0")
-		if err != nil {
-			t.Errorf("Unable to get to tags : %s", err)
-		}
-		actualArrayLength := len(tags)
-
-		assert.Equal(t, expectedArrayLength, actualArrayLength)
+		assert.Nil(t, err)
+		assert.Equal(t, 0, len(tags))
 	})))
 	t.Run("ExpectedResult", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		expectedArrayLength := 3
+		var expectedTags []entities.Tag
+		for i := 1; i <= 10; i++ {
+			expectedTags = append(expectedTags, entities.Tag{Id: i, Name: TEST_TAG_NAME_TEMPLATE + strconv.Itoa(i), State: entities.TAG_STATE_NEW})
+		}
+		CreateTagsInDB(t, 10, TEST_TAG_NAME_TEMPLATE, entities.TAG_STATE_NEW)
 
-		for i := 0; i < 3; i++ {
-			tagId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_TEMPLATE+strconv.Itoa(i), entities.TAG_STATE_NEW)
-			if err != nil || tagId == -1 {
-				t.Errorf("Unable to create tag: %s", err)
-			}
-		}
-		tags, err := queries.GetTags(db.DB, "50", "0")
-		if err != nil {
-			t.Errorf("Unable to get to tags : %s", err)
-		}
-		actualArrayLength := len(tags)
+		actualTags, err := queries.GetTags(db.DB, 50, 0)
 
-		assert.Equal(t, expectedArrayLength, actualArrayLength)
-		for i, tag := range tags {
-			assert.Equal(t, i+1, tag.Id)
-			assert.Equal(t, TEST_TAG_NAME_TEMPLATE+strconv.Itoa(i), tag.Name)
-			assert.Equal(t, entities.TAG_STATE_NEW, tag.State)
-		}
+		assert.Nil(t, err)
+		AssertEqualTagArrays(t, expectedTags, actualTags)
 	})))
 	t.Run("LimitParameterCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		expectedArrayLength := 5
-		for i := 0; i < 10; i++ {
-			tagId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_TEMPLATE+strconv.Itoa(i), entities.TAG_STATE_NEW)
-			if err != nil || tagId == -1 {
-				t.Errorf("Unable to create tag: %s", err)
-			}
+		var expectedTags []entities.Tag
+		for i := 1; i <= 5; i++ {
+			expectedTags = append(expectedTags, entities.Tag{Id: i, Name: TEST_TAG_NAME_TEMPLATE + strconv.Itoa(i), State: entities.TAG_STATE_NEW})
 		}
 
-		tags, err := queries.GetTags(db.DB, "5", "0")
-		if err != nil {
-			t.Errorf("Unable to get to tags : %s", err)
-		}
-		actualArrayLength := len(tags)
+		CreateTagsInDB(t, 10, TEST_TAG_NAME_TEMPLATE, entities.TAG_STATE_NEW)
 
-		assert.Equal(t, expectedArrayLength, actualArrayLength)
-		for i, tag := range tags {
-			assert.Equal(t, i+1, tag.Id)
-			assert.Equal(t, TEST_TAG_NAME_TEMPLATE+strconv.Itoa(i), tag.Name)
-			assert.Equal(t, entities.TAG_STATE_NEW, tag.State)
-		}
+		actualTags, err := queries.GetTags(db.DB, 5, 0)
+
+		assert.Nil(t, err)
+		AssertEqualTagArrays(t, expectedTags, actualTags)
 	})))
 	t.Run("OffsetParameterCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		expectedArrayLength := 5
-		for i := 0; i < 10; i++ {
-			tagId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_TEMPLATE+strconv.Itoa(i), entities.TAG_STATE_NEW)
-			if err != nil || tagId == -1 {
-				t.Errorf("Unable to create tag: %s", err)
-			}
+		var expectedTags []entities.Tag
+		for i := 6; i <= 10; i++ {
+			expectedTags = append(expectedTags, entities.Tag{Id: i, Name: TEST_TAG_NAME_TEMPLATE + strconv.Itoa(i), State: entities.TAG_STATE_NEW})
 		}
 
-		tags, err := queries.GetTags(db.DB, "50", "5")
-		if err != nil {
-			t.Errorf("Unable to get to tags : %s", err)
-		}
-		actualArrayLength := len(tags)
+		CreateTagsInDB(t, 10, TEST_TAG_NAME_TEMPLATE, entities.TAG_STATE_NEW)
 
-		assert.Equal(t, expectedArrayLength, actualArrayLength)
-		for i, tag := range tags {
-			assert.Equal(t, i+6, tag.Id)
-			assert.Equal(t, TEST_TAG_NAME_TEMPLATE+strconv.Itoa(i+5), tag.Name)
-			assert.Equal(t, entities.TAG_STATE_NEW, tag.State)
-		}
+		actualTags, err := queries.GetTags(db.DB, 50, 5)
+
+		assert.Nil(t, err)
+		AssertEqualTagArrays(t, expectedTags, actualTags)
 	})))
 }
 
 func TestDBTagUpdate(t *testing.T) {
-	t.Run("ExpectedNotFoundError", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		expectedError := sql.ErrNoRows
+	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+		err := queries.UpdateTag(db.DB, 1, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
-		actualError := queries.UpdateTag(db.DB, 1, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
-
-		assert.Equal(t, expectedError, actualError)
+		assert.Equal(t, sql.ErrNoRows, err)
 	})))
 	t.Run("DeletedCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		expectedError := sql.ErrNoRows
-
 		tagId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
-		if err != nil || tagId == -1 {
-			t.Errorf("Unable to create tag: %s", err)
-		}
+
+		assert.Nil(t, err)
+		assert.NotEqual(t, tagId, -1)
 
 		err = queries.DeleteTag(db.DB, tagId)
-		if err != nil {
-			t.Errorf("Unable to delete tag: %s", err)
-		}
 
-		actualError := queries.UpdateTag(db.DB, tagId, TEST_TAG_NAME_2, TEST_TAG_STATE_2)
+		assert.Nil(t, err)
 
-		assert.Equal(t, expectedError, actualError)
+		err = queries.UpdateTag(db.DB, tagId, TEST_TAG_NAME_2, TEST_TAG_STATE_2)
+
+		assert.Equal(t, sql.ErrNoRows, err)
 	})))
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		expectedName := TEST_TAG_NAME_2
-		expectedState := TEST_TAG_STATE_2
-		expectedId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
-		if err != nil || expectedId == -1 {
-			t.Errorf("Unable to create tag: %s", err)
-		}
+		expected := entities.Tag{Id: 1, Name: TEST_TAG_NAME_2, State: TEST_TAG_STATE_2}
 
-		err = queries.UpdateTag(db.DB, expectedId, TEST_TAG_NAME_2, TEST_TAG_STATE_2)
-		if err != nil {
-			t.Errorf("Unable to update tag: %s", err)
-		}
+		tagId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
-		actual, err := queries.GetTag(db.DB, expectedId)
+		assert.Nil(t, err)
+		assert.Equal(t, expected.Id, tagId)
 
-		assert.Equal(t, expectedId, actual.Id)
-		assert.Equal(t, expectedName, actual.Name)
-		assert.Equal(t, expectedState, actual.State)
+		err = queries.UpdateTag(db.DB, expected.Id, expected.Name, expected.State)
+
+		assert.Nil(t, err)
+
+		actual, err := queries.GetTag(db.DB, expected.Id)
+
+		AssertEqualTags(t, expected, actual)
 	})))
 	t.Run("DuplicateCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		tagId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
-		if err != nil || tagId == -1 {
-			t.Errorf("Unable to create tag: %s", err)
-		}
+
+		assert.Nil(t, err)
+		assert.NotEqual(t, tagId, -1)
+
 		tagId, err = queries.CreateTag(db.DB, TEST_TAG_NAME_2, TEST_TAG_STATE_2)
-		if err != nil || tagId == -1 {
-			t.Errorf("Unable to create tag: %s", err)
-		}
+
+		assert.Nil(t, err)
+		assert.NotEqual(t, tagId, -1)
 
 		actualError := queries.UpdateTag(db.DB, tagId, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
@@ -210,53 +193,44 @@ func TestDBTagUpdate(t *testing.T) {
 
 func TestDBTagDelete(t *testing.T) {
 	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		notExistentTagId := 1
+		err := queries.DeleteTag(db.DB, 1)
 
-		actualError := queries.DeleteTag(db.DB, notExistentTagId)
-		assert.Equal(t, sql.ErrNoRows, actualError)
+		assert.Equal(t, sql.ErrNoRows, err)
 	})))
 	t.Run("AlreadyDeletedCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		tagId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+
 		assert.Nil(t, err)
 		assert.NotEqual(t, tagId, -1)
 
 		err = queries.DeleteTag(db.DB, tagId)
+
 		assert.Nil(t, err)
 
 		err = queries.DeleteTag(db.DB, tagId)
+
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		expectedFirstTagId := 1
-		expectedSecondTagId := 3
-		expectedState := entities.TAG_STATE_NEW
-		expectedError := sql.ErrNoRows
-		expectedArrayLength := 2
+		var expectedTags []entities.Tag
+		expectedTags = append(expectedTags, entities.Tag{Id: 1, Name: TEST_TAG_NAME_TEMPLATE + "1", State: entities.TAG_STATE_NEW})
+		expectedTags = append(expectedTags, entities.Tag{Id: 3, Name: TEST_TAG_NAME_TEMPLATE + "3", State: entities.TAG_STATE_NEW})
+
 		tagIdToDelete := 2
-		for i := 0; i < 3; i++ {
-			tagId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_TEMPLATE+strconv.Itoa(i), entities.TAG_STATE_NEW)
-			assert.Nil(t, err)
-			assert.NotEqual(t, tagId, -1)
-		}
+
+		CreateTagsInDB(t, 3, TEST_TAG_NAME_TEMPLATE, entities.TAG_STATE_NEW)
 
 		err := queries.DeleteTag(db.DB, tagIdToDelete)
+
 		assert.Nil(t, err)
 
-		tags, err := queries.GetTags(db.DB, "50", "0")
+		tags, err := queries.GetTags(db.DB, 50, 0)
+
 		assert.Nil(t, err)
-		actualArrayLength := len(tags)
+		AssertEqualTagArrays(t, expectedTags, tags)
 
-		assert.Equal(t, expectedArrayLength, actualArrayLength)
+		_, err = queries.GetTag(db.DB, tagIdToDelete)
 
-		assert.Equal(t, expectedFirstTagId, tags[0].Id)
-		assert.Equal(t, TEST_TAG_NAME_TEMPLATE+"0", tags[0].Name)
-		assert.Equal(t, expectedState, tags[0].State)
-		assert.Equal(t, expectedSecondTagId, tags[1].Id)
-		assert.Equal(t, TEST_TAG_NAME_TEMPLATE+"2", tags[1].Name)
-		assert.Equal(t, expectedState, tags[1].State)
-
-		_, actualError := queries.GetTag(db.DB, tagIdToDelete)
-
-		assert.Equal(t, expectedError, actualError)
+		assert.Equal(t, sql.ErrNoRows, err)
 	})))
 }

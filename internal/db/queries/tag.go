@@ -8,7 +8,7 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/entities"
 )
 
-func GetTags(db *sql.DB, limit string, offset string) ([]entities.Tag, error) {
+func GetTags(db *sql.DB, limit int, offset int) ([]entities.Tag, error) {
 	var tags []entities.Tag
 	var (
 		id    int

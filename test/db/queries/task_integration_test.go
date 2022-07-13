@@ -28,6 +28,7 @@ func AssertEqualTasks(t *testing.T, expected entities.Task, actual entities.Task
 	assert.Equal(t, expected.Name, actual.Name)
 	assert.Equal(t, expected.State, actual.State)
 }
+
 func AssertEqualTaskArrays(t *testing.T, expected []entities.Task, actual []entities.Task) {
 	assert.Equal(t, len(expected), len(actual))
 
@@ -63,7 +64,7 @@ func TestDBTaskGet(t *testing.T) {
 		taskId, err := queries.CreateTask(db.DB, expected.Name, expected.State)
 
 		assert.Nil(t, err)
-		assert.NotEqual(t, taskId, -1)
+		assert.Equal(t, taskId, expected.Id)
 
 		actual, err := queries.GetTask(db.DB, taskId)
 
@@ -211,9 +212,10 @@ func TestDBTaskDelete(t *testing.T) {
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		expected1 := entities.Task{Id: 1, Name: TEST_TASK_NAME_TEMPLATE + "1", State: entities.TASK_STATE_NEW}
-		expected2 := entities.Task{Id: 3, Name: TEST_TASK_NAME_TEMPLATE + "3", State: entities.TASK_STATE_NEW}
-		expectedCount := 2
+		var expectedTasks []entities.Task
+		expectedTasks = append(expectedTasks, entities.Task{Id: 1, Name: TEST_TASK_NAME_TEMPLATE + "1", State: entities.TASK_STATE_NEW})
+		expectedTasks = append(expectedTasks, entities.Task{Id: 3, Name: TEST_TASK_NAME_TEMPLATE + "3", State: entities.TASK_STATE_NEW})
+
 		taskIdToDelete := 2
 
 		CreateTasksInDB(t, 3, TEST_TASK_NAME_TEMPLATE, entities.TASK_STATE_NEW)
@@ -225,10 +227,7 @@ func TestDBTaskDelete(t *testing.T) {
 		tasks, err := queries.GetTasks(db.DB, 50, 0)
 
 		assert.Nil(t, err)
-		assert.Equal(t, expectedCount, len(tasks))
-
-		AssertEqualTasks(t, expected1, tasks[0])
-		AssertEqualTasks(t, expected2, tasks[1])
+		AssertEqualTaskArrays(t, expectedTasks, tasks)
 
 		_, err = queries.GetTask(db.DB, taskIdToDelete)
 
