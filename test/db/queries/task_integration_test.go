@@ -59,7 +59,7 @@ func CreateTaskInDB(t *testing.T, name string, state string) int {
 
 func CreateTasksInDB(t *testing.T, count int, nameTemplate string, state string) {
 	for i := 1; i <= count; i++ {
-		CreateTaskInDB(t, nameTemplate+strconv.Itoa(i), state)
+		CreateTaskInDB(t, GenerateTaskName(TEST_TASK_NAME_TEMPLATE, i), state)
 	}
 }
 
