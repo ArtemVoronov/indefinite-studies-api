@@ -9,7 +9,7 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/entities"
 )
 
-func GetUsers(db *sql.DB, limit string, offset string) ([]entities.User, error) {
+func GetUsers(db *sql.DB, limit int, offset int) ([]entities.User, error) {
 	var user []entities.User
 	var (
 		id             int

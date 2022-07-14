@@ -8,7 +8,7 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/entities"
 )
 
-func GetNotes(db *sql.DB, limit string, offset string) ([]entities.Note, error) {
+func GetNotes(db *sql.DB, limit int, offset int) ([]entities.Note, error) {
 	var note []entities.Note
 	var (
 		id             int

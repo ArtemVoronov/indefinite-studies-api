@@ -36,7 +36,7 @@ func main() {
 		c.AbortWithStatus(http.StatusInternalServerError)
 	}))
 
-	db.DB = db.Setup()
+	db.GetInstance()
 
 	// TODO: add permission controller by user role and user state
 	v1 := router.Group("/api/v1", gin.BasicAuth(apiUsers)) // TODO: add auth via jwt, update model accordingly
