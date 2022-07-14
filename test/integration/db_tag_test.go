@@ -1,14 +1,13 @@
 //go:build integration
 // +build integration
 
-package queries_test
+package integration
 
 import (
 	"database/sql"
 	"strconv"
 	"testing"
 
-	integrationTesting "github.com/ArtemVoronov/indefinite-studies-api/internal/app/testing"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/entities"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/queries"
@@ -64,12 +63,12 @@ func CreateTagsInDB(t *testing.T, count int, nameTemplate string, state string) 
 }
 
 func TestDBTagGet(t *testing.T) {
-	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("NotFoundCase", RunWithRecreateDB((func(t *testing.T) {
 		_, err := queries.GetTag(db.GetInstance().GetDB(), 1)
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
-	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		expected := GenerateTag(1)
 
 		tagId, err := queries.CreateTag(db.GetInstance().GetDB(), expected.Name, expected.State)
@@ -84,13 +83,13 @@ func TestDBTagGet(t *testing.T) {
 }
 
 func TestDBTagCreate(t *testing.T) {
-	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		tagId, err := queries.CreateTag(db.GetInstance().GetDB(), TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
 		assert.Nil(t, err)
 		assert.Equal(t, tagId, 1)
 	})))
-	t.Run("DuplicateCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("DuplicateCase", RunWithRecreateDB((func(t *testing.T) {
 		tagId, err := queries.CreateTag(db.GetInstance().GetDB(), TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
 		assert.Nil(t, err)
@@ -103,13 +102,13 @@ func TestDBTagCreate(t *testing.T) {
 }
 
 func TestDBTagGetAll(t *testing.T) {
-	t.Run("ExpectedEmpty", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("ExpectedEmpty", RunWithRecreateDB((func(t *testing.T) {
 		tags, err := queries.GetTags(db.GetInstance().GetDB(), 50, 0)
 
 		assert.Nil(t, err)
 		assert.Equal(t, 0, len(tags))
 	})))
-	t.Run("ExpectedResult", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("ExpectedResult", RunWithRecreateDB((func(t *testing.T) {
 		var expectedTags []entities.Tag
 		for i := 1; i <= 10; i++ {
 			expectedTags = append(expectedTags, GenerateTag(i))
@@ -121,7 +120,7 @@ func TestDBTagGetAll(t *testing.T) {
 		assert.Nil(t, err)
 		AssertEqualTagArrays(t, expectedTags, actualTags)
 	})))
-	t.Run("LimitParameterCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("LimitParameterCase", RunWithRecreateDB((func(t *testing.T) {
 		var expectedTags []entities.Tag
 		for i := 1; i <= 5; i++ {
 			expectedTags = append(expectedTags, GenerateTag(i))
@@ -134,7 +133,7 @@ func TestDBTagGetAll(t *testing.T) {
 		assert.Nil(t, err)
 		AssertEqualTagArrays(t, expectedTags, actualTags)
 	})))
-	t.Run("OffsetParameterCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("OffsetParameterCase", RunWithRecreateDB((func(t *testing.T) {
 		var expectedTags []entities.Tag
 		for i := 6; i <= 10; i++ {
 			expectedTags = append(expectedTags, GenerateTag(i))
@@ -150,12 +149,12 @@ func TestDBTagGetAll(t *testing.T) {
 }
 
 func TestDBTagUpdate(t *testing.T) {
-	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("NotFoundCase", RunWithRecreateDB((func(t *testing.T) {
 		err := queries.UpdateTag(db.GetInstance().GetDB(), 1, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
-	t.Run("DeletedCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("DeletedCase", RunWithRecreateDB((func(t *testing.T) {
 		tagId, err := queries.CreateTag(db.GetInstance().GetDB(), TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
 		assert.Nil(t, err)
@@ -169,7 +168,7 @@ func TestDBTagUpdate(t *testing.T) {
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
-	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		expected := GenerateTag(1)
 
 		tagId, err := queries.CreateTag(db.GetInstance().GetDB(), TEST_TAG_NAME_2, TEST_TAG_STATE_2)
@@ -185,7 +184,7 @@ func TestDBTagUpdate(t *testing.T) {
 
 		AssertEqualTags(t, expected, actual)
 	})))
-	t.Run("DuplicateCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("DuplicateCase", RunWithRecreateDB((func(t *testing.T) {
 		tagId, err := queries.CreateTag(db.GetInstance().GetDB(), TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
 		assert.Nil(t, err)
@@ -203,12 +202,12 @@ func TestDBTagUpdate(t *testing.T) {
 }
 
 func TestDBTagDelete(t *testing.T) {
-	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("NotFoundCase", RunWithRecreateDB((func(t *testing.T) {
 		err := queries.DeleteTag(db.GetInstance().GetDB(), 1)
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
-	t.Run("AlreadyDeletedCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("AlreadyDeletedCase", RunWithRecreateDB((func(t *testing.T) {
 		tagId, err := queries.CreateTag(db.GetInstance().GetDB(), TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
 		assert.Nil(t, err)
@@ -222,7 +221,7 @@ func TestDBTagDelete(t *testing.T) {
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
-	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		var expectedTags []entities.Tag
 		expectedTags = append(expectedTags, GenerateTag(1))
 		expectedTags = append(expectedTags, GenerateTag(3))

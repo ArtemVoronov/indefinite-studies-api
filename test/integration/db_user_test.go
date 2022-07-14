@@ -1,7 +1,7 @@
 //go:build integration
 // +build integration
 
-package queries_test
+package integration
 
 import (
 	"database/sql"
@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"testing"
 
-	integrationTesting "github.com/ArtemVoronov/indefinite-studies-api/internal/app/testing"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/entities"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/queries"
@@ -87,12 +86,12 @@ func CreateUsersInDB(t *testing.T, count int, loginTemplate string, emailTemplat
 }
 
 func TestDBUserGet(t *testing.T) {
-	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("NotFoundCase", RunWithRecreateDB((func(t *testing.T) {
 		_, actualError := queries.GetUser(db.GetInstance().GetDB(), 1)
 
 		assert.Equal(t, sql.ErrNoRows, actualError)
 	})))
-	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		expected := GenerateUser(1)
 
 		userId, err := queries.CreateUser(db.GetInstance().GetDB(), expected.Login, expected.Email, expected.Password, expected.Role, expected.State)
@@ -107,13 +106,13 @@ func TestDBUserGet(t *testing.T) {
 }
 
 func TestDBUserCreate(t *testing.T) {
-	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		userId, err := queries.CreateUser(db.GetInstance().GetDB(), TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 
 		assert.Nil(t, err)
 		assert.Equal(t, userId, 1)
 	})))
-	t.Run("DuplicateCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("DuplicateCase", RunWithRecreateDB((func(t *testing.T) {
 		userId, err := queries.CreateUser(db.GetInstance().GetDB(), TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 
 		assert.Nil(t, err)
@@ -126,13 +125,13 @@ func TestDBUserCreate(t *testing.T) {
 }
 
 func TestDBUserGetAll(t *testing.T) {
-	t.Run("ExpectedEmpty", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("ExpectedEmpty", RunWithRecreateDB((func(t *testing.T) {
 		users, err := queries.GetUsers(db.GetInstance().GetDB(), 50, 0)
 
 		assert.Nil(t, err)
 		assert.Equal(t, 0, len(users))
 	})))
-	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		var expectedUsers []entities.User
 		for i := 1; i <= 10; i++ {
 			expectedUsers = append(expectedUsers, GenerateUser(i))
@@ -144,7 +143,7 @@ func TestDBUserGetAll(t *testing.T) {
 		assert.Nil(t, err)
 		AssertEqualUserArrays(t, expectedUsers, actualUsers)
 	})))
-	t.Run("LimitParameterCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("LimitParameterCase", RunWithRecreateDB((func(t *testing.T) {
 		var expectedUsers []entities.User
 		for i := 1; i <= 5; i++ {
 			expectedUsers = append(expectedUsers, GenerateUser(i))
@@ -156,7 +155,7 @@ func TestDBUserGetAll(t *testing.T) {
 		assert.Nil(t, err)
 		AssertEqualUserArrays(t, expectedUsers, actualUsers)
 	})))
-	t.Run("OffsetParameterCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("OffsetParameterCase", RunWithRecreateDB((func(t *testing.T) {
 		var expectedUsers []entities.User
 		for i := 6; i <= 10; i++ {
 			expectedUsers = append(expectedUsers, GenerateUser(i))
@@ -171,12 +170,12 @@ func TestDBUserGetAll(t *testing.T) {
 }
 
 func TestDBUserUpdate(t *testing.T) {
-	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("NotFoundCase", RunWithRecreateDB((func(t *testing.T) {
 		err := queries.UpdateUser(db.GetInstance().GetDB(), 1, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
-	t.Run("DeletedCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("DeletedCase", RunWithRecreateDB((func(t *testing.T) {
 		userId, err := queries.CreateUser(db.GetInstance().GetDB(), TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 
 		assert.Nil(t, err)
@@ -190,7 +189,7 @@ func TestDBUserUpdate(t *testing.T) {
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
-	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		expected := GenerateUser(1)
 
 		userId, err := queries.CreateUser(db.GetInstance().GetDB(), TEST_USER_LOGIN_2, TEST_USER_EMAIL_2, TEST_USER_PASSWORD_2, TEST_USER_ROLE_2, TEST_USER_STATE_2)
@@ -206,7 +205,7 @@ func TestDBUserUpdate(t *testing.T) {
 
 		AssertEqualUsers(t, expected, actual)
 	})))
-	t.Run("DuplicateCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("DuplicateCase", RunWithRecreateDB((func(t *testing.T) {
 		userId, err := queries.CreateUser(db.GetInstance().GetDB(), TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 
 		assert.Nil(t, err)
@@ -224,12 +223,12 @@ func TestDBUserUpdate(t *testing.T) {
 }
 
 func TestDBUserDelete(t *testing.T) {
-	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("NotFoundCase", RunWithRecreateDB((func(t *testing.T) {
 		err := queries.DeleteUser(db.GetInstance().GetDB(), 1)
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
-	t.Run("AlreadyDeletedCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("AlreadyDeletedCase", RunWithRecreateDB((func(t *testing.T) {
 		userId, err := queries.CreateUser(db.GetInstance().GetDB(), TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 
 		assert.Nil(t, err)
@@ -243,7 +242,7 @@ func TestDBUserDelete(t *testing.T) {
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
-	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		var expectedUsers []entities.User
 		expectedUsers = append(expectedUsers, GenerateUser(1))
 		expectedUsers = append(expectedUsers, GenerateUser(3))

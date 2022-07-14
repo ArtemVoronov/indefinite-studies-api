@@ -1,14 +1,13 @@
 //go:build integration
 // +build integration
 
-package queries_test
+package integration
 
 import (
 	"database/sql"
 	"strconv"
 	"testing"
 
-	integrationTesting "github.com/ArtemVoronov/indefinite-studies-api/internal/app/testing"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/entities"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/queries"
@@ -78,12 +77,12 @@ func CreateNotesInDB(t *testing.T, count int, textTemplate string, topicTemplate
 }
 
 func TestDBNoteGet(t *testing.T) {
-	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("NotFoundCase", RunWithRecreateDB((func(t *testing.T) {
 		_, actualError := queries.GetNote(db.GetInstance().GetDB(), 1)
 
 		assert.Equal(t, sql.ErrNoRows, actualError)
 	})))
-	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		userId := CreateUserInDB(t, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 		tagId := CreateTagInDB(t, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
@@ -101,7 +100,7 @@ func TestDBNoteGet(t *testing.T) {
 }
 
 func TestDBNoteCreate(t *testing.T) {
-	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		userId := CreateUserInDB(t, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 		tagId := CreateTagInDB(t, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
@@ -115,13 +114,13 @@ func TestDBNoteCreate(t *testing.T) {
 }
 
 func TestDBNoteGetAll(t *testing.T) {
-	t.Run("ExpectedEmpty", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("ExpectedEmpty", RunWithRecreateDB((func(t *testing.T) {
 		notes, err := queries.GetNotes(db.GetInstance().GetDB(), 50, 0)
 
 		assert.Nil(t, err)
 		assert.Equal(t, 0, len(notes))
 	})))
-	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		userId := CreateUserInDB(t, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 		tagId := CreateTagInDB(t, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 		var expectedNotes []entities.Note
@@ -134,7 +133,7 @@ func TestDBNoteGetAll(t *testing.T) {
 		assert.Nil(t, err)
 		AssertEqualNoteArrays(t, expectedNotes, actualNotes)
 	})))
-	t.Run("LimitParameterCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("LimitParameterCase", RunWithRecreateDB((func(t *testing.T) {
 		userId := CreateUserInDB(t, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 		tagId := CreateTagInDB(t, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 		var expectedNotes []entities.Note
@@ -147,7 +146,7 @@ func TestDBNoteGetAll(t *testing.T) {
 		assert.Nil(t, err)
 		AssertEqualNoteArrays(t, expectedNotes, actualNotes)
 	})))
-	t.Run("OffsetParameterCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("OffsetParameterCase", RunWithRecreateDB((func(t *testing.T) {
 		userId := CreateUserInDB(t, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 		tagId := CreateTagInDB(t, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 		var expectedNotes []entities.Note
@@ -163,7 +162,7 @@ func TestDBNoteGetAll(t *testing.T) {
 }
 
 func TestDBNoteUpdate(t *testing.T) {
-	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("NotFoundCase", RunWithRecreateDB((func(t *testing.T) {
 		userId := CreateUserInDB(t, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 		tagId := CreateTagInDB(t, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
@@ -171,7 +170,7 @@ func TestDBNoteUpdate(t *testing.T) {
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
-	t.Run("DeletedCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("DeletedCase", RunWithRecreateDB((func(t *testing.T) {
 		userId := CreateUserInDB(t, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 		tagId := CreateTagInDB(t, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
@@ -188,7 +187,7 @@ func TestDBNoteUpdate(t *testing.T) {
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
-	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		userId := CreateUserInDB(t, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 		tagId := CreateTagInDB(t, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
@@ -210,12 +209,12 @@ func TestDBNoteUpdate(t *testing.T) {
 }
 
 func TestDBNoteDelete(t *testing.T) {
-	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("NotFoundCase", RunWithRecreateDB((func(t *testing.T) {
 		err := queries.DeleteNote(db.GetInstance().GetDB(), 1)
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
-	t.Run("AlreadyDeletedCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("AlreadyDeletedCase", RunWithRecreateDB((func(t *testing.T) {
 		userId := CreateUserInDB(t, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 		tagId := CreateTagInDB(t, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 		noteId := CreateNoteInDB(t, TEST_NOTE_TEXT_1, TEST_NOTE_TOPIC_1, tagId, userId, TEST_NOTE_STATE_1)
@@ -228,7 +227,7 @@ func TestDBNoteDelete(t *testing.T) {
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
-	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		userId := CreateUserInDB(t, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 		tagId := CreateTagInDB(t, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 

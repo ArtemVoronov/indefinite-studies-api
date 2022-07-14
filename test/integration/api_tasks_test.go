@@ -1,44 +1,20 @@
 //go:build integration
 // +build integration
 
-package tasks_test
+package integration
 
 import (
 	"bytes"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strconv"
 	"testing"
 
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/api"
-	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/tasks"
-	integrationTesting "github.com/ArtemVoronov/indefinite-studies-api/internal/app/testing"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/entities"
-	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 )
-
-var router *gin.Engine
-
-func TestMain(m *testing.M) {
-	integrationTesting.Setup()
-	router = SetupRouter()
-	code := m.Run()
-	integrationTesting.Shutdown()
-	os.Exit(code)
-}
-
-func SetupRouter() *gin.Engine {
-	r := gin.Default()
-	r.GET("/tasks", tasks.GetTasks)
-	r.GET("/tasks/:id", tasks.GetTask)
-	r.POST("/tasks", tasks.CreateTask)
-	r.PUT("/tasks/:id", tasks.UpdateTask)
-	r.DELETE("/tasks/:id", tasks.DeleteTask)
-	return r
-}
 
 var (
 	ERROR_MESSAGE_PARSING_BODY_JSON string = "\"Error during parsing of HTTP request body. Please check it format correctness: missed brackets, double quotes, commas, matching of names and data types and etc\""
@@ -96,14 +72,14 @@ func CreateTask(name any, state any) (int, string, error) {
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest(http.MethodPost, "/tasks", bytes.NewBuffer([]byte(taskCreateDTO)))
 	req.Header.Set("Content-Type", "application/json")
-	router.ServeHTTP(w, req)
+	Router.ServeHTTP(w, req)
 	return w.Code, w.Body.String(), nil
 }
 
 func GetTask(id string) (int, string) {
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest(http.MethodGet, "/tasks/"+id, nil)
-	router.ServeHTTP(w, req)
+	Router.ServeHTTP(w, req)
 	return w.Code, w.Body.String()
 }
 
@@ -140,7 +116,7 @@ func GetTasks(limit any, offset any) (int, string, error) {
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest(http.MethodGet, "/tasks"+queryParams, nil)
-	router.ServeHTTP(w, req)
+	Router.ServeHTTP(w, req)
 	return w.Code, w.Body.String(), nil
 }
 
@@ -195,7 +171,7 @@ func UpdateTask(id any, name any, state any) (int, string, error) {
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest(http.MethodPut, "/tasks"+idParam, bytes.NewBuffer([]byte(taskUpdateDTO)))
 	req.Header.Set("Content-Type", "application/json")
-	router.ServeHTTP(w, req)
+	Router.ServeHTTP(w, req)
 	return w.Code, w.Body.String(), nil
 }
 
@@ -215,18 +191,18 @@ func DeleteTask(id any) (int, string, error) {
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest(http.MethodDelete, "/tasks"+idParam, nil)
-	router.ServeHTTP(w, req)
+	Router.ServeHTTP(w, req)
 	return w.Code, w.Body.String(), nil
 }
 
 func TestApiTaskGet(t *testing.T) {
-	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("NotFoundCase", RunWithRecreateDB((func(t *testing.T) {
 		httpStatusCode, body := GetTask("1")
 
 		assert.Equal(t, http.StatusNotFound, httpStatusCode)
 		assert.Equal(t, "\""+api.PAGE_NOT_FOUND+"\"", body)
 	})))
-	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		expectedId := "1"
 		expectedName := "Test Task 1"
 		expectedState := entities.TASK_STATE_NEW
@@ -242,19 +218,19 @@ func TestApiTaskGet(t *testing.T) {
 		assert.Equal(t, http.StatusOK, httpStatusCode)
 		assert.Equal(t, expectedBody, body)
 	})))
-	t.Run("WrongInput: 'Id' is a string", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("WrongInput: 'Id' is a string", RunWithRecreateDB((func(t *testing.T) {
 		httpStatusCode, body := GetTask("text")
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_ID_WRONG_FORMAT, body)
 	})))
-	t.Run("WrongInput: 'Id' is a float", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("WrongInput: 'Id' is a float", RunWithRecreateDB((func(t *testing.T) {
 		httpStatusCode, body := GetTask("2.15")
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_ID_WRONG_FORMAT, body)
 	})))
-	t.Run("WrongInput: 'Id' is a empty string", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("WrongInput: 'Id' is a empty string", RunWithRecreateDB((func(t *testing.T) {
 		httpStatusCode, body := GetTask("")
 
 		assert.Equal(t, http.StatusMovedPermanently, httpStatusCode)
@@ -263,7 +239,7 @@ func TestApiTaskGet(t *testing.T) {
 }
 
 func TestApiTaskGetAll(t *testing.T) {
-	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		expectedBody := "{"
 		expectedBody += "\"Count\":10,"
 		expectedBody += "\"Offset\":0,"
@@ -289,7 +265,7 @@ func TestApiTaskGetAll(t *testing.T) {
 		assert.Equal(t, http.StatusOK, httpStatusCode)
 		assert.Equal(t, expectedBody, body)
 	})))
-	t.Run("EmptyResult", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("EmptyResult", RunWithRecreateDB((func(t *testing.T) {
 		expectedBody := "{"
 		expectedBody += "\"Count\":0,"
 		expectedBody += "\"Offset\":0,"
@@ -301,7 +277,7 @@ func TestApiTaskGetAll(t *testing.T) {
 		assert.Equal(t, http.StatusOK, httpStatusCode)
 		assert.Equal(t, expectedBody, body)
 	})))
-	t.Run("LimitCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("LimitCase", RunWithRecreateDB((func(t *testing.T) {
 		expectedBody := "{"
 		expectedBody += "\"Count\":5,"
 		expectedBody += "\"Offset\":0,"
@@ -332,7 +308,7 @@ func TestApiTaskGetAll(t *testing.T) {
 		assert.Equal(t, http.StatusOK, httpStatusCode)
 		assert.Equal(t, expectedBody, body)
 	})))
-	t.Run("OffsetCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("OffsetCase", RunWithRecreateDB((func(t *testing.T) {
 		expectedBody := "{"
 		expectedBody += "\"Count\":5,"
 		expectedBody += "\"Offset\":5,"
@@ -366,61 +342,61 @@ func TestApiTaskGetAll(t *testing.T) {
 }
 
 func TestApiTaskCreate(t *testing.T) {
-	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		httpStatusCode, body, _ := CreateTask("Test Task 1", entities.TASK_STATE_NEW)
 
 		assert.Equal(t, http.StatusCreated, httpStatusCode)
 		assert.Equal(t, "1", body)
 	})))
-	t.Run("WrongInput: Missed 'Name'", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("WrongInput: Missed 'Name'", RunWithRecreateDB((func(t *testing.T) {
 		httpStatusCode, body, _ := CreateTask(nil, entities.TASK_STATE_NEW)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_NAME_IS_REQUIRED, body)
 	})))
-	t.Run("WrongInput: Missed 'State'", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("WrongInput: Missed 'State'", RunWithRecreateDB((func(t *testing.T) {
 		httpStatusCode, body, _ := CreateTask("Test Task 1", nil)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_STATE_IS_REQUIRED, body)
 	})))
-	t.Run("WrongInput: Missed 'Name' and 'State'", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("WrongInput: Missed 'Name' and 'State'", RunWithRecreateDB((func(t *testing.T) {
 		httpStatusCode, body, _ := CreateTask(nil, nil)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_NAME_AND_STATE_IS_REQUIRED, body)
 	})))
-	t.Run("WrongInput: 'Name' is not a string", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("WrongInput: 'Name' is not a string", RunWithRecreateDB((func(t *testing.T) {
 		httpStatusCode, body, _ := CreateTask(1, entities.TASK_STATE_NEW)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_MESSAGE_PARSING_BODY_JSON, body)
 	})))
-	t.Run("WrongInput: 'State' is not a string", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("WrongInput: 'State' is not a string", RunWithRecreateDB((func(t *testing.T) {
 		httpStatusCode, body, _ := CreateTask("Test Task 1", 1)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_MESSAGE_PARSING_BODY_JSON, body)
 	})))
-	t.Run("WrongInput: 'Name' is empty string", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("WrongInput: 'Name' is empty string", RunWithRecreateDB((func(t *testing.T) {
 		httpStatusCode, body, _ := CreateTask("", entities.TASK_STATE_NEW)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_NAME_IS_REQUIRED, body)
 	})))
-	t.Run("WrongInput: 'State' is empty a string", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("WrongInput: 'State' is empty a string", RunWithRecreateDB((func(t *testing.T) {
 		httpStatusCode, body, _ := CreateTask("Test Task 1", "")
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_STATE_IS_REQUIRED, body)
 	})))
-	t.Run("WrongInput: 'State' has a value that not from enum", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("WrongInput: 'State' has a value that not from enum", RunWithRecreateDB((func(t *testing.T) {
 		httpStatusCode, body, _ := CreateTask("Test Task 1", "MISSED TEST STATE")
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_CREATE_STATE_WRONG_VALUE, body)
 	})))
-	t.Run("DuplicateCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("DuplicateCase", RunWithRecreateDB((func(t *testing.T) {
 		expectedId := "1"
 
 		httpStatusCode, body, _ := CreateTask("Test Task 1", entities.TASK_STATE_NEW)
@@ -433,7 +409,7 @@ func TestApiTaskCreate(t *testing.T) {
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, "\""+api.DUPLICATE_FOUND+"\"", body)
 	})))
-	t.Run("DeletedCase: try to create as deleted", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("DeletedCase: try to create as deleted", RunWithRecreateDB((func(t *testing.T) {
 		httpStatusCode, body, _ := CreateTask("Test Task 1", entities.TASK_STATE_DELETED)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
@@ -442,7 +418,7 @@ func TestApiTaskCreate(t *testing.T) {
 }
 
 func TestApiTaskUpdate(t *testing.T) {
-	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		expectedId := "1"
 		expectedName := "Test Task 2"
 		expectedState := entities.TASK_STATE_DONE
@@ -464,79 +440,79 @@ func TestApiTaskUpdate(t *testing.T) {
 		assert.Equal(t, expectedBody, body)
 
 	})))
-	t.Run("WrongInput: 'Id' is a empty string", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("WrongInput: 'Id' is a empty string", RunWithRecreateDB((func(t *testing.T) {
 		httpStatusCode, body, _ := UpdateTask("", "Test Task 2", entities.TASK_STATE_DONE)
 
 		assert.Equal(t, http.StatusNotFound, httpStatusCode)
 		assert.Equal(t, api.PAGE_NOT_FOUND, body)
 	})))
-	t.Run("WrongInput: 'Id' is a string", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("WrongInput: 'Id' is a string", RunWithRecreateDB((func(t *testing.T) {
 		httpStatusCode, body, _ := UpdateTask("text", "Test Task 2", entities.TASK_STATE_DONE)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_ID_WRONG_FORMAT, body)
 	})))
-	t.Run("WrongInput: 'Id' is a float", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("WrongInput: 'Id' is a float", RunWithRecreateDB((func(t *testing.T) {
 		httpStatusCode, body, _ := UpdateTask("2.15", "Test Task 2", entities.TASK_STATE_DONE)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_ID_WRONG_FORMAT, body)
 	})))
-	t.Run("WrongInput: Missed 'Name'", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("WrongInput: Missed 'Name'", RunWithRecreateDB((func(t *testing.T) {
 		httpStatusCode, body, _ := UpdateTask("1", nil, entities.TASK_STATE_DONE)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_NAME_IS_REQUIRED, body)
 	})))
-	t.Run("WrongInput: Missed 'State'", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("WrongInput: Missed 'State'", RunWithRecreateDB((func(t *testing.T) {
 		httpStatusCode, body, _ := UpdateTask("1", "Test Task 2", nil)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_STATE_IS_REQUIRED, body)
 	})))
-	t.Run("WrongInput: Missed 'Name' and 'State'", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("WrongInput: Missed 'Name' and 'State'", RunWithRecreateDB((func(t *testing.T) {
 		httpStatusCode, body, _ := UpdateTask("1", nil, nil)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_NAME_AND_STATE_IS_REQUIRED, body)
 	})))
-	t.Run("WrongInput: 'Name' is not a string", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("WrongInput: 'Name' is not a string", RunWithRecreateDB((func(t *testing.T) {
 		httpStatusCode, body, _ := UpdateTask("1", 10000, entities.TASK_STATE_DONE)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_MESSAGE_PARSING_BODY_JSON, body)
 	})))
-	t.Run("WrongInput: 'State' is not a string", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("WrongInput: 'State' is not a string", RunWithRecreateDB((func(t *testing.T) {
 		httpStatusCode, body, _ := UpdateTask("1", "Test Task 2", 10000)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_MESSAGE_PARSING_BODY_JSON, body)
 	})))
-	t.Run("WrongInput: 'Name' is empty string", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("WrongInput: 'Name' is empty string", RunWithRecreateDB((func(t *testing.T) {
 		httpStatusCode, body, _ := UpdateTask("1", "", entities.TASK_STATE_DONE)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_NAME_IS_REQUIRED, body)
 	})))
-	t.Run("WrongInput: 'State' is empty a string", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("WrongInput: 'State' is empty a string", RunWithRecreateDB((func(t *testing.T) {
 		httpStatusCode, body, _ := UpdateTask("1", "Test Task 2", "")
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_STATE_IS_REQUIRED, body)
 	})))
-	t.Run("WrongInput: 'State' has a value that not from enum", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("WrongInput: 'State' has a value that not from enum", RunWithRecreateDB((func(t *testing.T) {
 		httpStatusCode, body, _ := UpdateTask("1", "Test Task 2", "MISSED TEST STATE")
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_UPDATE_STATE_WRONG_VALUE, body)
 	})))
-	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("NotFoundCase", RunWithRecreateDB((func(t *testing.T) {
 		httpStatusCode, body, _ := UpdateTask("1", "Test Task 2", entities.TASK_STATE_DONE)
 
 		assert.Equal(t, http.StatusNotFound, httpStatusCode)
 		assert.Equal(t, "\""+api.PAGE_NOT_FOUND+"\"", body)
 	})))
-	t.Run("DeletedCase: find deleted", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("DeletedCase: find deleted", RunWithRecreateDB((func(t *testing.T) {
 		expectedId := "1"
 
 		CreateTask("Test Task 1", entities.TASK_STATE_NEW)
@@ -547,7 +523,7 @@ func TestApiTaskUpdate(t *testing.T) {
 		assert.Equal(t, http.StatusNotFound, httpStatusCode)
 		assert.Equal(t, "\""+api.PAGE_NOT_FOUND+"\"", body)
 	})))
-	t.Run("DeletedCase: try to mark as deleted", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("DeletedCase: try to mark as deleted", RunWithRecreateDB((func(t *testing.T) {
 		expectedId := "1"
 
 		CreateTask("Test Task 1", entities.TASK_STATE_NEW)
@@ -556,7 +532,7 @@ func TestApiTaskUpdate(t *testing.T) {
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, "\""+api.DELETE_VIA_PUT_REQUEST_IS_FODBIDDEN+"\"", body)
 	})))
-	t.Run("DuplicateCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("DuplicateCase", RunWithRecreateDB((func(t *testing.T) {
 		expectedId := "2"
 
 		CreateTask("Test Task 1", entities.TASK_STATE_NEW)
@@ -567,7 +543,7 @@ func TestApiTaskUpdate(t *testing.T) {
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, "\""+api.DUPLICATE_FOUND+"\"", body)
 	})))
-	t.Run("MultipleUpdateCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("MultipleUpdateCase", RunWithRecreateDB((func(t *testing.T) {
 		expectedId := "1"
 		expectedName := "Test Task 2"
 		expectedState := entities.TASK_STATE_DONE
@@ -594,7 +570,7 @@ func TestApiTaskUpdate(t *testing.T) {
 }
 
 func TestApiTaskDelete(t *testing.T) {
-	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		expectedId := "1"
 
 		CreateTask("Test Task 1", entities.TASK_STATE_NEW)
@@ -609,25 +585,25 @@ func TestApiTaskDelete(t *testing.T) {
 		assert.Equal(t, http.StatusNotFound, httpStatusCode)
 		assert.Equal(t, "\""+api.PAGE_NOT_FOUND+"\"", body)
 	})))
-	t.Run("WrongInput: 'Id' is a string", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("WrongInput: 'Id' is a string", RunWithRecreateDB((func(t *testing.T) {
 		httpStatusCode, body, _ := DeleteTask("text")
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_ID_WRONG_FORMAT, body)
 	})))
-	t.Run("WrongInput: 'Id' is a float", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("WrongInput: 'Id' is a float", RunWithRecreateDB((func(t *testing.T) {
 		httpStatusCode, body, _ := DeleteTask("2.15")
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_ID_WRONG_FORMAT, body)
 	})))
-	t.Run("WrongInput: 'Id' is a empty string", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("WrongInput: 'Id' is a empty string", RunWithRecreateDB((func(t *testing.T) {
 		httpStatusCode, body, _ := DeleteTask("")
 
 		assert.Equal(t, http.StatusNotFound, httpStatusCode)
 		assert.Equal(t, api.PAGE_NOT_FOUND, body)
 	})))
-	t.Run("MultipleDeleteCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("MultipleDeleteCase", RunWithRecreateDB((func(t *testing.T) {
 		expectedId := "1"
 
 		CreateTask("Test Task 1", entities.TASK_STATE_NEW)

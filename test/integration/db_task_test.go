@@ -1,14 +1,13 @@
 //go:build integration
 // +build integration
 
-package queries_test
+package integration
 
 import (
 	"database/sql"
 	"strconv"
 	"testing"
 
-	integrationTesting "github.com/ArtemVoronov/indefinite-studies-api/internal/app/testing"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/entities"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/queries"
@@ -64,12 +63,12 @@ func CreateTasksInDB(t *testing.T, count int, nameTemplate string, state string)
 }
 
 func TestDBTaskGet(t *testing.T) {
-	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("NotFoundCase", RunWithRecreateDB((func(t *testing.T) {
 		_, err := queries.GetTask(db.GetInstance().GetDB(), 1)
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
-	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		expected := GenerateTask(1)
 
 		taskId, err := queries.CreateTask(db.GetInstance().GetDB(), expected.Name, expected.State)
@@ -84,13 +83,13 @@ func TestDBTaskGet(t *testing.T) {
 }
 
 func TestDBTaskCreate(t *testing.T) {
-	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		taskId, err := queries.CreateTask(db.GetInstance().GetDB(), TEST_TASK_NAME_1, TEST_TASK_STATE_1)
 
 		assert.Nil(t, err)
 		assert.Equal(t, taskId, 1)
 	})))
-	t.Run("DuplicateCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("DuplicateCase", RunWithRecreateDB((func(t *testing.T) {
 		taskId, err := queries.CreateTask(db.GetInstance().GetDB(), TEST_TASK_NAME_1, TEST_TASK_STATE_1)
 
 		assert.Nil(t, err)
@@ -103,13 +102,13 @@ func TestDBTaskCreate(t *testing.T) {
 }
 
 func TestDBTaskGetAll(t *testing.T) {
-	t.Run("ExpectedEmpty", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("ExpectedEmpty", RunWithRecreateDB((func(t *testing.T) {
 		tasks, err := queries.GetTasks(db.GetInstance().GetDB(), 50, 0)
 
 		assert.Nil(t, err)
 		assert.Equal(t, 0, len(tasks))
 	})))
-	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		var expectedTasks []entities.Task
 		for i := 1; i <= 10; i++ {
 			expectedTasks = append(expectedTasks, GenerateTask(i))
@@ -121,7 +120,7 @@ func TestDBTaskGetAll(t *testing.T) {
 		assert.Nil(t, err)
 		AssertEqualTaskArrays(t, expectedTasks, actualTasks)
 	})))
-	t.Run("LimitParameterCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("LimitParameterCase", RunWithRecreateDB((func(t *testing.T) {
 		var expectedTasks []entities.Task
 		for i := 1; i <= 5; i++ {
 			expectedTasks = append(expectedTasks, GenerateTask(i))
@@ -134,7 +133,7 @@ func TestDBTaskGetAll(t *testing.T) {
 		assert.Nil(t, err)
 		AssertEqualTaskArrays(t, expectedTasks, actualTasks)
 	})))
-	t.Run("OffsetParameterCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("OffsetParameterCase", RunWithRecreateDB((func(t *testing.T) {
 		var expectedTasks []entities.Task
 		for i := 6; i <= 10; i++ {
 			expectedTasks = append(expectedTasks, GenerateTask(i))
@@ -150,12 +149,12 @@ func TestDBTaskGetAll(t *testing.T) {
 }
 
 func TestDBTaskUpdate(t *testing.T) {
-	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("NotFoundCase", RunWithRecreateDB((func(t *testing.T) {
 		err := queries.UpdateTask(db.GetInstance().GetDB(), 1, TEST_TASK_NAME_1, TEST_TASK_STATE_1)
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
-	t.Run("DeletedCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("DeletedCase", RunWithRecreateDB((func(t *testing.T) {
 		taskId, err := queries.CreateTask(db.GetInstance().GetDB(), TEST_TASK_NAME_1, TEST_TASK_STATE_1)
 
 		assert.Nil(t, err)
@@ -169,7 +168,7 @@ func TestDBTaskUpdate(t *testing.T) {
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
-	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		expected := GenerateTask(1)
 
 		taskId, err := queries.CreateTask(db.GetInstance().GetDB(), TEST_TASK_NAME_2, TEST_TASK_STATE_2)
@@ -185,7 +184,7 @@ func TestDBTaskUpdate(t *testing.T) {
 
 		AssertEqualTasks(t, expected, actual)
 	})))
-	t.Run("DuplicateCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("DuplicateCase", RunWithRecreateDB((func(t *testing.T) {
 		taskId, err := queries.CreateTask(db.GetInstance().GetDB(), TEST_TASK_NAME_1, TEST_TASK_STATE_1)
 
 		assert.Nil(t, err)
@@ -203,12 +202,12 @@ func TestDBTaskUpdate(t *testing.T) {
 }
 
 func TestDBTaskDelete(t *testing.T) {
-	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("NotFoundCase", RunWithRecreateDB((func(t *testing.T) {
 		err := queries.DeleteTask(db.GetInstance().GetDB(), 1)
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
-	t.Run("AlreadyDeletedCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("AlreadyDeletedCase", RunWithRecreateDB((func(t *testing.T) {
 		taskId, err := queries.CreateTask(db.GetInstance().GetDB(), TEST_TASK_NAME_1, TEST_TASK_STATE_1)
 
 		assert.Nil(t, err)
@@ -222,7 +221,7 @@ func TestDBTaskDelete(t *testing.T) {
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
-	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		var expectedTasks []entities.Task
 		expectedTasks = append(expectedTasks, GenerateTask(1))
 		expectedTasks = append(expectedTasks, GenerateTask(3))
