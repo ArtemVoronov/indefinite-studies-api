@@ -82,6 +82,6 @@ func StartServer(host string, router *gin.Engine) {
 		log.Fatal("Server forced to shutdown:", err)
 	}
 
-	defer db.DB.Close()
+	defer db.GetInstance().GetDB().Close()
 	log.Println("Server exiting")
 }

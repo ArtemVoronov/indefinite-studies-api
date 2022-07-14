@@ -68,7 +68,7 @@ func GetTasks(c *gin.Context) {
 		offset = 0
 	}
 
-	tasks, err := queries.GetTasks(db.DB, limit, offset)
+	tasks, err := queries.GetTasks(db.GetInstance().GetDB(), limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "Unable to get tasks")
 		log.Printf("Unable to get to tasks : %s", err)
@@ -93,7 +93,7 @@ func GetTask(c *gin.Context) {
 		return
 	}
 
-	task, err := queries.GetTask(db.DB, taskId)
+	task, err := queries.GetTask(db.GetInstance().GetDB(), taskId)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
@@ -126,7 +126,7 @@ func CreateTask(c *gin.Context) {
 		return
 	}
 
-	result, err := queries.CreateTask(db.DB, task.Name, task.State)
+	result, err := queries.CreateTask(db.GetInstance().GetDB(), task.Name, task.State)
 	if err != nil || result == -1 {
 		if err.Error() == db.ErrorTaskDuplicateKey.Error() {
 			c.JSON(http.StatusBadRequest, api.DUPLICATE_FOUND)
@@ -174,7 +174,7 @@ func UpdateTask(c *gin.Context) {
 		return
 	}
 
-	err := queries.UpdateTask(db.DB, taskId, task.Name, task.State)
+	err := queries.UpdateTask(db.GetInstance().GetDB(), taskId, task.Name, task.State)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -207,7 +207,7 @@ func DeleteTask(c *gin.Context) {
 		return
 	}
 
-	err := queries.DeleteTask(db.DB, id)
+	err := queries.DeleteTask(db.GetInstance().GetDB(), id)
 
 	if err != nil {
 		if err == sql.ErrNoRows {

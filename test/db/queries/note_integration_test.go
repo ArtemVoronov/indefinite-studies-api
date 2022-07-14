@@ -65,7 +65,7 @@ func AssertEqualNoteArrays(t *testing.T, expected []entities.Note, actual []enti
 }
 
 func CreateNoteInDB(t *testing.T, text string, topic string, tagId int, userId int, state string) int {
-	noteId, err := queries.CreateNote(db.DB, text, topic, tagId, userId, state)
+	noteId, err := queries.CreateNote(db.GetInstance().GetDB(), text, topic, tagId, userId, state)
 	assert.Nil(t, err)
 	assert.NotEqual(t, noteId, -1)
 	return noteId
@@ -79,7 +79,7 @@ func CreateNotesInDB(t *testing.T, count int, textTemplate string, topicTemplate
 
 func TestDBNoteGet(t *testing.T) {
 	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		_, actualError := queries.GetNote(db.DB, 1)
+		_, actualError := queries.GetNote(db.GetInstance().GetDB(), 1)
 
 		assert.Equal(t, sql.ErrNoRows, actualError)
 	})))
@@ -89,12 +89,12 @@ func TestDBNoteGet(t *testing.T) {
 
 		expected := GenerateNote(1, userId, tagId)
 
-		noteId, err := queries.CreateNote(db.DB, expected.Text, expected.Topic, expected.TagId, expected.UserId, expected.State)
+		noteId, err := queries.CreateNote(db.GetInstance().GetDB(), expected.Text, expected.Topic, expected.TagId, expected.UserId, expected.State)
 
 		assert.Nil(t, err)
 		assert.Equal(t, expected.Id, noteId)
 
-		actual, err := queries.GetNote(db.DB, noteId)
+		actual, err := queries.GetNote(db.GetInstance().GetDB(), noteId)
 
 		AssertEqualNotes(t, expected, actual)
 	})))
@@ -107,7 +107,7 @@ func TestDBNoteCreate(t *testing.T) {
 
 		expected := GenerateNote(1, userId, tagId)
 
-		noteId, err := queries.CreateNote(db.DB, expected.Text, expected.Topic, expected.TagId, expected.UserId, expected.State)
+		noteId, err := queries.CreateNote(db.GetInstance().GetDB(), expected.Text, expected.Topic, expected.TagId, expected.UserId, expected.State)
 
 		assert.Nil(t, err)
 		assert.Equal(t, expected.Id, noteId)
@@ -116,7 +116,7 @@ func TestDBNoteCreate(t *testing.T) {
 
 func TestDBNoteGetAll(t *testing.T) {
 	t.Run("ExpectedEmpty", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		notes, err := queries.GetNotes(db.DB, 50, 0)
+		notes, err := queries.GetNotes(db.GetInstance().GetDB(), 50, 0)
 
 		assert.Nil(t, err)
 		assert.Equal(t, 0, len(notes))
@@ -129,7 +129,7 @@ func TestDBNoteGetAll(t *testing.T) {
 			expectedNotes = append(expectedNotes, GenerateNote(i, userId, tagId))
 		}
 		CreateNotesInDB(t, 10, TEST_NOTE_TEXT_TEMPLATE, TEST_NOTE_TOPIC_TEMPLATE, tagId, userId, TEST_NOTE_STATE_1)
-		actualNotes, err := queries.GetNotes(db.DB, 50, 0)
+		actualNotes, err := queries.GetNotes(db.GetInstance().GetDB(), 50, 0)
 
 		assert.Nil(t, err)
 		AssertEqualNoteArrays(t, expectedNotes, actualNotes)
@@ -142,7 +142,7 @@ func TestDBNoteGetAll(t *testing.T) {
 			expectedNotes = append(expectedNotes, GenerateNote(i, userId, tagId))
 		}
 		CreateNotesInDB(t, 10, TEST_NOTE_TEXT_TEMPLATE, TEST_NOTE_TOPIC_TEMPLATE, tagId, userId, TEST_NOTE_STATE_1)
-		actualNotes, err := queries.GetNotes(db.DB, 5, 0)
+		actualNotes, err := queries.GetNotes(db.GetInstance().GetDB(), 5, 0)
 
 		assert.Nil(t, err)
 		AssertEqualNoteArrays(t, expectedNotes, actualNotes)
@@ -155,7 +155,7 @@ func TestDBNoteGetAll(t *testing.T) {
 			expectedNotes = append(expectedNotes, GenerateNote(i, userId, tagId))
 		}
 		CreateNotesInDB(t, 10, TEST_NOTE_TEXT_TEMPLATE, TEST_NOTE_TOPIC_TEMPLATE, tagId, userId, TEST_NOTE_STATE_1)
-		actualNotes, err := queries.GetNotes(db.DB, 50, 5)
+		actualNotes, err := queries.GetNotes(db.GetInstance().GetDB(), 50, 5)
 
 		assert.Nil(t, err)
 		AssertEqualNoteArrays(t, expectedNotes, actualNotes)
@@ -167,7 +167,7 @@ func TestDBNoteUpdate(t *testing.T) {
 		userId := CreateUserInDB(t, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 		tagId := CreateTagInDB(t, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
-		err := queries.UpdateNote(db.DB, 1, TEST_NOTE_TEXT_1, TEST_NOTE_TOPIC_1, tagId, userId, TEST_NOTE_STATE_1)
+		err := queries.UpdateNote(db.GetInstance().GetDB(), 1, TEST_NOTE_TEXT_1, TEST_NOTE_TOPIC_1, tagId, userId, TEST_NOTE_STATE_1)
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
@@ -175,16 +175,16 @@ func TestDBNoteUpdate(t *testing.T) {
 		userId := CreateUserInDB(t, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 		tagId := CreateTagInDB(t, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
-		noteId, err := queries.CreateNote(db.DB, TEST_NOTE_TEXT_1, TEST_NOTE_TOPIC_1, tagId, userId, TEST_NOTE_STATE_1)
+		noteId, err := queries.CreateNote(db.GetInstance().GetDB(), TEST_NOTE_TEXT_1, TEST_NOTE_TOPIC_1, tagId, userId, TEST_NOTE_STATE_1)
 
 		assert.Nil(t, err)
 		assert.NotEqual(t, noteId, -1)
 
-		err = queries.DeleteNote(db.DB, noteId)
+		err = queries.DeleteNote(db.GetInstance().GetDB(), noteId)
 
 		assert.Nil(t, err)
 
-		err = queries.UpdateNote(db.DB, noteId, TEST_NOTE_TEXT_2, TEST_NOTE_TOPIC_2, tagId, userId, TEST_NOTE_STATE_2)
+		err = queries.UpdateNote(db.GetInstance().GetDB(), noteId, TEST_NOTE_TEXT_2, TEST_NOTE_TOPIC_2, tagId, userId, TEST_NOTE_STATE_2)
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
@@ -194,16 +194,16 @@ func TestDBNoteUpdate(t *testing.T) {
 
 		expected := GenerateNote(1, userId, tagId)
 
-		noteId, err := queries.CreateNote(db.DB, TEST_NOTE_TEXT_2, TEST_NOTE_TOPIC_2, userId, tagId, TEST_NOTE_STATE_2)
+		noteId, err := queries.CreateNote(db.GetInstance().GetDB(), TEST_NOTE_TEXT_2, TEST_NOTE_TOPIC_2, userId, tagId, TEST_NOTE_STATE_2)
 
 		assert.Nil(t, err)
 		assert.Equal(t, expected.Id, noteId)
 
-		err = queries.UpdateNote(db.DB, expected.Id, expected.Text, expected.Topic, expected.TagId, expected.UserId, expected.State)
+		err = queries.UpdateNote(db.GetInstance().GetDB(), expected.Id, expected.Text, expected.Topic, expected.TagId, expected.UserId, expected.State)
 
 		assert.Nil(t, err)
 
-		actual, err := queries.GetNote(db.DB, expected.Id)
+		actual, err := queries.GetNote(db.GetInstance().GetDB(), expected.Id)
 
 		AssertEqualNotes(t, expected, actual)
 	})))
@@ -211,7 +211,7 @@ func TestDBNoteUpdate(t *testing.T) {
 
 func TestDBNoteDelete(t *testing.T) {
 	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		err := queries.DeleteNote(db.DB, 1)
+		err := queries.DeleteNote(db.GetInstance().GetDB(), 1)
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
@@ -220,11 +220,11 @@ func TestDBNoteDelete(t *testing.T) {
 		tagId := CreateTagInDB(t, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 		noteId := CreateNoteInDB(t, TEST_NOTE_TEXT_1, TEST_NOTE_TOPIC_1, tagId, userId, TEST_NOTE_STATE_1)
 
-		err := queries.DeleteNote(db.DB, noteId)
+		err := queries.DeleteNote(db.GetInstance().GetDB(), noteId)
 
 		assert.Nil(t, err)
 
-		err = queries.DeleteNote(db.DB, noteId)
+		err = queries.DeleteNote(db.GetInstance().GetDB(), noteId)
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
@@ -240,16 +240,16 @@ func TestDBNoteDelete(t *testing.T) {
 
 		CreateNotesInDB(t, 3, TEST_NOTE_TEXT_TEMPLATE, TEST_NOTE_TOPIC_TEMPLATE, tagId, userId, TEST_NOTE_STATE_1)
 
-		err := queries.DeleteNote(db.DB, noteIdToDelete)
+		err := queries.DeleteNote(db.GetInstance().GetDB(), noteIdToDelete)
 
 		assert.Nil(t, err)
 
-		notes, err := queries.GetNotes(db.DB, 50, 0)
+		notes, err := queries.GetNotes(db.GetInstance().GetDB(), 50, 0)
 
 		assert.Nil(t, err)
 		AssertEqualNoteArrays(t, expectedNotes, notes)
 
-		_, err = queries.GetNote(db.DB, noteIdToDelete)
+		_, err = queries.GetNote(db.GetInstance().GetDB(), noteIdToDelete)
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))

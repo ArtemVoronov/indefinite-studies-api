@@ -51,7 +51,7 @@ func AssertEqualTagArrays(t *testing.T, expected []entities.Tag, actual []entiti
 }
 
 func CreateTagInDB(t *testing.T, name string, state string) int {
-	tagId, err := queries.CreateTag(db.DB, name, state)
+	tagId, err := queries.CreateTag(db.GetInstance().GetDB(), name, state)
 	assert.Nil(t, err)
 	assert.NotEqual(t, tagId, -1)
 	return tagId
@@ -65,19 +65,19 @@ func CreateTagsInDB(t *testing.T, count int, nameTemplate string, state string) 
 
 func TestDBTagGet(t *testing.T) {
 	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		_, err := queries.GetTag(db.DB, 1)
+		_, err := queries.GetTag(db.GetInstance().GetDB(), 1)
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expected := GenerateTag(1)
 
-		tagId, err := queries.CreateTag(db.DB, expected.Name, expected.State)
+		tagId, err := queries.CreateTag(db.GetInstance().GetDB(), expected.Name, expected.State)
 
 		assert.Nil(t, err)
 		assert.Equal(t, tagId, expected.Id)
 
-		actual, err := queries.GetTag(db.DB, tagId)
+		actual, err := queries.GetTag(db.GetInstance().GetDB(), tagId)
 
 		AssertEqualTags(t, expected, actual)
 	})))
@@ -85,18 +85,18 @@ func TestDBTagGet(t *testing.T) {
 
 func TestDBTagCreate(t *testing.T) {
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		tagId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+		tagId, err := queries.CreateTag(db.GetInstance().GetDB(), TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
 		assert.Nil(t, err)
 		assert.Equal(t, tagId, 1)
 	})))
 	t.Run("DuplicateCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		tagId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+		tagId, err := queries.CreateTag(db.GetInstance().GetDB(), TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
 		assert.Nil(t, err)
 		assert.NotEqual(t, tagId, -1)
 
-		_, err = queries.CreateTag(db.DB, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+		_, err = queries.CreateTag(db.GetInstance().GetDB(), TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
 		assert.Equal(t, db.ErrorTagDuplicateKey, err)
 	})))
@@ -104,7 +104,7 @@ func TestDBTagCreate(t *testing.T) {
 
 func TestDBTagGetAll(t *testing.T) {
 	t.Run("ExpectedEmpty", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		tags, err := queries.GetTags(db.DB, 50, 0)
+		tags, err := queries.GetTags(db.GetInstance().GetDB(), 50, 0)
 
 		assert.Nil(t, err)
 		assert.Equal(t, 0, len(tags))
@@ -116,7 +116,7 @@ func TestDBTagGetAll(t *testing.T) {
 		}
 		CreateTagsInDB(t, 10, TEST_TAG_NAME_TEMPLATE, entities.TAG_STATE_NEW)
 
-		actualTags, err := queries.GetTags(db.DB, 50, 0)
+		actualTags, err := queries.GetTags(db.GetInstance().GetDB(), 50, 0)
 
 		assert.Nil(t, err)
 		AssertEqualTagArrays(t, expectedTags, actualTags)
@@ -129,7 +129,7 @@ func TestDBTagGetAll(t *testing.T) {
 
 		CreateTagsInDB(t, 10, TEST_TAG_NAME_TEMPLATE, entities.TAG_STATE_NEW)
 
-		actualTags, err := queries.GetTags(db.DB, 5, 0)
+		actualTags, err := queries.GetTags(db.GetInstance().GetDB(), 5, 0)
 
 		assert.Nil(t, err)
 		AssertEqualTagArrays(t, expectedTags, actualTags)
@@ -142,7 +142,7 @@ func TestDBTagGetAll(t *testing.T) {
 
 		CreateTagsInDB(t, 10, TEST_TAG_NAME_TEMPLATE, entities.TAG_STATE_NEW)
 
-		actualTags, err := queries.GetTags(db.DB, 50, 5)
+		actualTags, err := queries.GetTags(db.GetInstance().GetDB(), 50, 5)
 
 		assert.Nil(t, err)
 		AssertEqualTagArrays(t, expectedTags, actualTags)
@@ -151,52 +151,52 @@ func TestDBTagGetAll(t *testing.T) {
 
 func TestDBTagUpdate(t *testing.T) {
 	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		err := queries.UpdateTag(db.DB, 1, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+		err := queries.UpdateTag(db.GetInstance().GetDB(), 1, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
 	t.Run("DeletedCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		tagId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+		tagId, err := queries.CreateTag(db.GetInstance().GetDB(), TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
 		assert.Nil(t, err)
 		assert.NotEqual(t, tagId, -1)
 
-		err = queries.DeleteTag(db.DB, tagId)
+		err = queries.DeleteTag(db.GetInstance().GetDB(), tagId)
 
 		assert.Nil(t, err)
 
-		err = queries.UpdateTag(db.DB, tagId, TEST_TAG_NAME_2, TEST_TAG_STATE_2)
+		err = queries.UpdateTag(db.GetInstance().GetDB(), tagId, TEST_TAG_NAME_2, TEST_TAG_STATE_2)
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expected := GenerateTag(1)
 
-		tagId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_2, TEST_TAG_STATE_2)
+		tagId, err := queries.CreateTag(db.GetInstance().GetDB(), TEST_TAG_NAME_2, TEST_TAG_STATE_2)
 
 		assert.Nil(t, err)
 		assert.Equal(t, expected.Id, tagId)
 
-		err = queries.UpdateTag(db.DB, expected.Id, expected.Name, expected.State)
+		err = queries.UpdateTag(db.GetInstance().GetDB(), expected.Id, expected.Name, expected.State)
 
 		assert.Nil(t, err)
 
-		actual, err := queries.GetTag(db.DB, expected.Id)
+		actual, err := queries.GetTag(db.GetInstance().GetDB(), expected.Id)
 
 		AssertEqualTags(t, expected, actual)
 	})))
 	t.Run("DuplicateCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		tagId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+		tagId, err := queries.CreateTag(db.GetInstance().GetDB(), TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
 		assert.Nil(t, err)
 		assert.NotEqual(t, tagId, -1)
 
-		tagId, err = queries.CreateTag(db.DB, TEST_TAG_NAME_2, TEST_TAG_STATE_2)
+		tagId, err = queries.CreateTag(db.GetInstance().GetDB(), TEST_TAG_NAME_2, TEST_TAG_STATE_2)
 
 		assert.Nil(t, err)
 		assert.NotEqual(t, tagId, -1)
 
-		actualError := queries.UpdateTag(db.DB, tagId, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+		actualError := queries.UpdateTag(db.GetInstance().GetDB(), tagId, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
 		assert.Equal(t, db.ErrorTagDuplicateKey, actualError)
 	})))
@@ -204,21 +204,21 @@ func TestDBTagUpdate(t *testing.T) {
 
 func TestDBTagDelete(t *testing.T) {
 	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		err := queries.DeleteTag(db.DB, 1)
+		err := queries.DeleteTag(db.GetInstance().GetDB(), 1)
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
 	t.Run("AlreadyDeletedCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		tagId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+		tagId, err := queries.CreateTag(db.GetInstance().GetDB(), TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
 		assert.Nil(t, err)
 		assert.NotEqual(t, tagId, -1)
 
-		err = queries.DeleteTag(db.DB, tagId)
+		err = queries.DeleteTag(db.GetInstance().GetDB(), tagId)
 
 		assert.Nil(t, err)
 
-		err = queries.DeleteTag(db.DB, tagId)
+		err = queries.DeleteTag(db.GetInstance().GetDB(), tagId)
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
@@ -231,16 +231,16 @@ func TestDBTagDelete(t *testing.T) {
 
 		CreateTagsInDB(t, 3, TEST_TAG_NAME_TEMPLATE, entities.TAG_STATE_NEW)
 
-		err := queries.DeleteTag(db.DB, tagIdToDelete)
+		err := queries.DeleteTag(db.GetInstance().GetDB(), tagIdToDelete)
 
 		assert.Nil(t, err)
 
-		tags, err := queries.GetTags(db.DB, 50, 0)
+		tags, err := queries.GetTags(db.GetInstance().GetDB(), 50, 0)
 
 		assert.Nil(t, err)
 		AssertEqualTagArrays(t, expectedTags, tags)
 
-		_, err = queries.GetTag(db.DB, tagIdToDelete)
+		_, err = queries.GetTag(db.GetInstance().GetDB(), tagIdToDelete)
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))

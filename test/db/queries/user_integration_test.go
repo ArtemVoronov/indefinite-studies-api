@@ -74,7 +74,7 @@ func AssertEqualUserArrays(t *testing.T, expected []entities.User, actual []enti
 }
 
 func CreateUserInDB(t *testing.T, login string, email string, password string, role string, state string) int {
-	userId, err := queries.CreateUser(db.DB, login, email, password, role, state)
+	userId, err := queries.CreateUser(db.GetInstance().GetDB(), login, email, password, role, state)
 	assert.Nil(t, err)
 	assert.NotEqual(t, userId, -1)
 	return userId
@@ -88,19 +88,19 @@ func CreateUsersInDB(t *testing.T, count int, loginTemplate string, emailTemplat
 
 func TestDBUserGet(t *testing.T) {
 	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		_, actualError := queries.GetUser(db.DB, 1)
+		_, actualError := queries.GetUser(db.GetInstance().GetDB(), 1)
 
 		assert.Equal(t, sql.ErrNoRows, actualError)
 	})))
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expected := GenerateUser(1)
 
-		userId, err := queries.CreateUser(db.DB, expected.Login, expected.Email, expected.Password, expected.Role, expected.State)
+		userId, err := queries.CreateUser(db.GetInstance().GetDB(), expected.Login, expected.Email, expected.Password, expected.Role, expected.State)
 
 		assert.Nil(t, err)
 		assert.Equal(t, userId, expected.Id)
 
-		actual, err := queries.GetUser(db.DB, userId)
+		actual, err := queries.GetUser(db.GetInstance().GetDB(), userId)
 
 		AssertEqualUsers(t, expected, actual)
 	})))
@@ -108,18 +108,18 @@ func TestDBUserGet(t *testing.T) {
 
 func TestDBUserCreate(t *testing.T) {
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		userId, err := queries.CreateUser(db.DB, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
+		userId, err := queries.CreateUser(db.GetInstance().GetDB(), TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 
 		assert.Nil(t, err)
 		assert.Equal(t, userId, 1)
 	})))
 	t.Run("DuplicateCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		userId, err := queries.CreateUser(db.DB, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
+		userId, err := queries.CreateUser(db.GetInstance().GetDB(), TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 
 		assert.Nil(t, err)
 		assert.NotEqual(t, userId, -1)
 
-		_, err = queries.CreateUser(db.DB, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
+		_, err = queries.CreateUser(db.GetInstance().GetDB(), TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 
 		assert.Equal(t, db.ErrorUserDuplicateKey, err)
 	})))
@@ -127,7 +127,7 @@ func TestDBUserCreate(t *testing.T) {
 
 func TestDBUserGetAll(t *testing.T) {
 	t.Run("ExpectedEmpty", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		users, err := queries.GetUsers(db.DB, 50, 0)
+		users, err := queries.GetUsers(db.GetInstance().GetDB(), 50, 0)
 
 		assert.Nil(t, err)
 		assert.Equal(t, 0, len(users))
@@ -139,7 +139,7 @@ func TestDBUserGetAll(t *testing.T) {
 		}
 		CreateUsersInDB(t, 10, TEST_USER_LOGIN_TEMPLATE, TEST_USER_EMAIL_TEMPLATE, TEST_USER_PASSORD_TEMPLATE, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 
-		actualUsers, err := queries.GetUsers(db.DB, 50, 0)
+		actualUsers, err := queries.GetUsers(db.GetInstance().GetDB(), 50, 0)
 
 		assert.Nil(t, err)
 		AssertEqualUserArrays(t, expectedUsers, actualUsers)
@@ -151,7 +151,7 @@ func TestDBUserGetAll(t *testing.T) {
 		}
 		CreateUsersInDB(t, 10, TEST_USER_LOGIN_TEMPLATE, TEST_USER_EMAIL_TEMPLATE, TEST_USER_PASSORD_TEMPLATE, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 
-		actualUsers, err := queries.GetUsers(db.DB, 5, 0)
+		actualUsers, err := queries.GetUsers(db.GetInstance().GetDB(), 5, 0)
 
 		assert.Nil(t, err)
 		AssertEqualUserArrays(t, expectedUsers, actualUsers)
@@ -163,7 +163,7 @@ func TestDBUserGetAll(t *testing.T) {
 		}
 		CreateUsersInDB(t, 10, TEST_USER_LOGIN_TEMPLATE, TEST_USER_EMAIL_TEMPLATE, TEST_USER_PASSORD_TEMPLATE, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 
-		actualUsers, err := queries.GetUsers(db.DB, 50, 5)
+		actualUsers, err := queries.GetUsers(db.GetInstance().GetDB(), 50, 5)
 
 		assert.Nil(t, err)
 		AssertEqualUserArrays(t, expectedUsers, actualUsers)
@@ -172,52 +172,52 @@ func TestDBUserGetAll(t *testing.T) {
 
 func TestDBUserUpdate(t *testing.T) {
 	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		err := queries.UpdateUser(db.DB, 1, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
+		err := queries.UpdateUser(db.GetInstance().GetDB(), 1, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
 	t.Run("DeletedCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		userId, err := queries.CreateUser(db.DB, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
+		userId, err := queries.CreateUser(db.GetInstance().GetDB(), TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 
 		assert.Nil(t, err)
 		assert.NotEqual(t, userId, -1)
 
-		err = queries.DeleteUser(db.DB, userId)
+		err = queries.DeleteUser(db.GetInstance().GetDB(), userId)
 
 		assert.Nil(t, err)
 
-		err = queries.UpdateUser(db.DB, userId, TEST_USER_LOGIN_2, TEST_USER_EMAIL_2, TEST_USER_PASSWORD_2, TEST_USER_ROLE_2, TEST_USER_STATE_2)
+		err = queries.UpdateUser(db.GetInstance().GetDB(), userId, TEST_USER_LOGIN_2, TEST_USER_EMAIL_2, TEST_USER_PASSWORD_2, TEST_USER_ROLE_2, TEST_USER_STATE_2)
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expected := GenerateUser(1)
 
-		userId, err := queries.CreateUser(db.DB, TEST_USER_LOGIN_2, TEST_USER_EMAIL_2, TEST_USER_PASSWORD_2, TEST_USER_ROLE_2, TEST_USER_STATE_2)
+		userId, err := queries.CreateUser(db.GetInstance().GetDB(), TEST_USER_LOGIN_2, TEST_USER_EMAIL_2, TEST_USER_PASSWORD_2, TEST_USER_ROLE_2, TEST_USER_STATE_2)
 
 		assert.Nil(t, err)
 		assert.Equal(t, expected.Id, userId)
 
-		err = queries.UpdateUser(db.DB, expected.Id, expected.Login, expected.Email, expected.Password, expected.Role, expected.State)
+		err = queries.UpdateUser(db.GetInstance().GetDB(), expected.Id, expected.Login, expected.Email, expected.Password, expected.Role, expected.State)
 
 		assert.Nil(t, err)
 
-		actual, err := queries.GetUser(db.DB, expected.Id)
+		actual, err := queries.GetUser(db.GetInstance().GetDB(), expected.Id)
 
 		AssertEqualUsers(t, expected, actual)
 	})))
 	t.Run("DuplicateCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		userId, err := queries.CreateUser(db.DB, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
+		userId, err := queries.CreateUser(db.GetInstance().GetDB(), TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 
 		assert.Nil(t, err)
 		assert.NotEqual(t, userId, -1)
 
-		userId, err = queries.CreateUser(db.DB, TEST_USER_LOGIN_2, TEST_USER_EMAIL_2, TEST_USER_PASSWORD_2, TEST_USER_ROLE_2, TEST_USER_STATE_2)
+		userId, err = queries.CreateUser(db.GetInstance().GetDB(), TEST_USER_LOGIN_2, TEST_USER_EMAIL_2, TEST_USER_PASSWORD_2, TEST_USER_ROLE_2, TEST_USER_STATE_2)
 
 		assert.Nil(t, err)
 		assert.NotEqual(t, userId, -1)
 
-		actualError := queries.UpdateUser(db.DB, userId, TEST_USER_LOGIN_2, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_2, TEST_USER_ROLE_2, TEST_USER_STATE_1)
+		actualError := queries.UpdateUser(db.GetInstance().GetDB(), userId, TEST_USER_LOGIN_2, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_2, TEST_USER_ROLE_2, TEST_USER_STATE_1)
 
 		assert.Equal(t, db.ErrorUserDuplicateKey, actualError)
 	})))
@@ -225,21 +225,21 @@ func TestDBUserUpdate(t *testing.T) {
 
 func TestDBUserDelete(t *testing.T) {
 	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		err := queries.DeleteUser(db.DB, 1)
+		err := queries.DeleteUser(db.GetInstance().GetDB(), 1)
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
 	t.Run("AlreadyDeletedCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		userId, err := queries.CreateUser(db.DB, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
+		userId, err := queries.CreateUser(db.GetInstance().GetDB(), TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 
 		assert.Nil(t, err)
 		assert.NotEqual(t, userId, -1)
 
-		err = queries.DeleteUser(db.DB, userId)
+		err = queries.DeleteUser(db.GetInstance().GetDB(), userId)
 
 		assert.Nil(t, err)
 
-		err = queries.DeleteUser(db.DB, userId)
+		err = queries.DeleteUser(db.GetInstance().GetDB(), userId)
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
@@ -252,16 +252,16 @@ func TestDBUserDelete(t *testing.T) {
 
 		CreateUsersInDB(t, 3, TEST_USER_LOGIN_TEMPLATE, TEST_USER_EMAIL_TEMPLATE, TEST_USER_PASSORD_TEMPLATE, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 
-		err := queries.DeleteUser(db.DB, userIdToDelete)
+		err := queries.DeleteUser(db.GetInstance().GetDB(), userIdToDelete)
 
 		assert.Nil(t, err)
 
-		users, err := queries.GetUsers(db.DB, 50, 0)
+		users, err := queries.GetUsers(db.GetInstance().GetDB(), 50, 0)
 
 		assert.Nil(t, err)
 		AssertEqualUserArrays(t, expectedUsers, users)
 
-		_, err = queries.GetUser(db.DB, userIdToDelete)
+		_, err = queries.GetUser(db.GetInstance().GetDB(), userIdToDelete)
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))

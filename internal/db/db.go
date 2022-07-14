@@ -6,19 +6,62 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
 
 	_ "github.com/lib/pq"
 )
 
 // TODO: add explicit tx using, and context with 30 second timeout, make timeout and db *sql.D as one struct that is used by queries
 // TODO: then make injection of DB to api functions and integration tests, maybe just a singleton
-var DB *sql.DB
+
+type Singleton interface {
+	GetDB() *sql.DB
+}
+
+type singleton struct {
+	rwmutex          sync.RWMutex
+	db               *sql.DB
+	timeoutInSeconds int // TODO: init contextes with timeouts for db.Tx()
+}
+
+var once sync.Once
+var instance *singleton
+
+func GetInstance() Singleton {
+	once.Do(func() {
+		if instance == nil {
+			instance = new(singleton)
+			sqldb := setup()
+			instance.setDB(sqldb)
+			instance.setTimeoutInSeconds(30)
+		}
+	})
+	return instance
+}
+
+func (s *singleton) setDB(sqldb *sql.DB) {
+	s.rwmutex.Lock()
+	defer s.rwmutex.Unlock()
+	s.db = sqldb
+}
+
+func (s *singleton) setTimeoutInSeconds(timeout int) {
+	s.rwmutex.Lock()
+	defer s.rwmutex.Unlock()
+	s.timeoutInSeconds = timeout
+}
+
+func (s *singleton) GetDB() *sql.DB {
+	s.rwmutex.RLock()
+	defer s.rwmutex.RUnlock()
+	return s.db
+}
 
 var ErrorTaskDuplicateKey = errors.New("pq: duplicate key value violates unique constraint \"tasks_name_state_unique\"")
 var ErrorTagDuplicateKey = errors.New("pq: duplicate key value violates unique constraint \"tags_name_state_unique\"")
 var ErrorUserDuplicateKey = errors.New("pq: duplicate key value violates unique constraint \"users_email_state_unique\"")
 
-func Setup() *sql.DB {
+func setup() *sql.DB {
 
 	dbEnvVars := [6]string{"DATABASE_HOST", "DATABASE_PORT", "DATABASE_USER", "DATABASE_PASSWORD", "DATABASE_NAME", "DATABASE_SSL_MODE"}
 	var variables []string
