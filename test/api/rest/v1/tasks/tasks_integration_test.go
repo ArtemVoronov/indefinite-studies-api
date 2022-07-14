@@ -219,17 +219,17 @@ func DeleteTask(id any) (int, string, error) {
 	return w.Code, w.Body.String(), nil
 }
 
-func TestApiGetTask(t *testing.T) {
-	t.Run("ExpectedNotFoundError", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+func TestApiTaskGet(t *testing.T) {
+	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		httpStatusCode, body := GetTask("1")
 
-		assert.Equal(t, http.StatusOK, httpStatusCode)
+		assert.Equal(t, http.StatusNotFound, httpStatusCode)
 		assert.Equal(t, "\""+api.PAGE_NOT_FOUND+"\"", body)
 	})))
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedId := "1"
 		expectedName := "Test Task 1"
-		expectedState := entities.TAG_STATE_NEW
+		expectedState := entities.TASK_STATE_NEW
 		expectedBody := "{" +
 			"\"Id\":" + expectedId + "," +
 			"\"Name\":\"" + expectedName + "\"," +
@@ -262,7 +262,7 @@ func TestApiGetTask(t *testing.T) {
 	})))
 }
 
-func TestApiGetTasks(t *testing.T) {
+func TestApiTaskGetAll(t *testing.T) {
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedBody := "{"
 		expectedBody += "\"Count\":10,"
@@ -272,7 +272,7 @@ func TestApiGetTasks(t *testing.T) {
 		for i := 1; i <= 10; i++ {
 			id := strconv.Itoa(i)
 			name := "Test Task " + id
-			state := entities.TAG_STATE_NEW
+			state := entities.TASK_STATE_NEW
 
 			CreateTask(name, state)
 			expectedBody += "{\"Id\":" + id + "," + "\"Name\":\"" + name + "\"," + "\"State\":\"" + state + "\"}"
@@ -310,7 +310,7 @@ func TestApiGetTasks(t *testing.T) {
 		for i := 1; i <= 5; i++ {
 			id := strconv.Itoa(i)
 			name := "Test Task " + id
-			state := entities.TAG_STATE_NEW
+			state := entities.TASK_STATE_NEW
 			expectedBody += "{\"Id\":" + id + "," + "\"Name\":\"" + name + "\"," + "\"State\":\"" + state + "\"}"
 			if i != 5 {
 				expectedBody += ","
@@ -323,7 +323,7 @@ func TestApiGetTasks(t *testing.T) {
 		for i := 1; i <= 10; i++ {
 			id := strconv.Itoa(i)
 			name := "Test Task " + id
-			state := entities.TAG_STATE_NEW
+			state := entities.TASK_STATE_NEW
 			CreateTask(name, state)
 		}
 
@@ -341,7 +341,7 @@ func TestApiGetTasks(t *testing.T) {
 		for i := 6; i <= 10; i++ {
 			id := strconv.Itoa(i)
 			name := "Test Task " + id
-			state := entities.TAG_STATE_NEW
+			state := entities.TASK_STATE_NEW
 			expectedBody += "{\"Id\":" + id + "," + "\"Name\":\"" + name + "\"," + "\"State\":\"" + state + "\"}"
 			if i != 10 {
 				expectedBody += ","
@@ -354,7 +354,7 @@ func TestApiGetTasks(t *testing.T) {
 		for i := 1; i <= 10; i++ {
 			id := strconv.Itoa(i)
 			name := "Test Task " + id
-			state := entities.TAG_STATE_NEW
+			state := entities.TASK_STATE_NEW
 			CreateTask(name, state)
 		}
 
@@ -365,15 +365,15 @@ func TestApiGetTasks(t *testing.T) {
 	})))
 }
 
-func TestApiCreateTask(t *testing.T) {
+func TestApiTaskCreate(t *testing.T) {
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		httpStatusCode, body, _ := CreateTask("Test Task 1", entities.TAG_STATE_NEW)
+		httpStatusCode, body, _ := CreateTask("Test Task 1", entities.TASK_STATE_NEW)
 
 		assert.Equal(t, http.StatusCreated, httpStatusCode)
 		assert.Equal(t, "1", body)
 	})))
 	t.Run("WrongInput: Missed 'Name'", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		httpStatusCode, body, _ := CreateTask(nil, entities.TAG_STATE_NEW)
+		httpStatusCode, body, _ := CreateTask(nil, entities.TASK_STATE_NEW)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_NAME_IS_REQUIRED, body)
@@ -391,7 +391,7 @@ func TestApiCreateTask(t *testing.T) {
 		assert.Equal(t, ERROR_NAME_AND_STATE_IS_REQUIRED, body)
 	})))
 	t.Run("WrongInput: 'Name' is not a string", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		httpStatusCode, body, _ := CreateTask(1, entities.TAG_STATE_NEW)
+		httpStatusCode, body, _ := CreateTask(1, entities.TASK_STATE_NEW)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_MESSAGE_PARSING_BODY_JSON, body)
@@ -403,7 +403,7 @@ func TestApiCreateTask(t *testing.T) {
 		assert.Equal(t, ERROR_MESSAGE_PARSING_BODY_JSON, body)
 	})))
 	t.Run("WrongInput: 'Name' is empty string", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		httpStatusCode, body, _ := CreateTask("", entities.TAG_STATE_NEW)
+		httpStatusCode, body, _ := CreateTask("", entities.TASK_STATE_NEW)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_NAME_IS_REQUIRED, body)
@@ -423,12 +423,12 @@ func TestApiCreateTask(t *testing.T) {
 	t.Run("DuplicateCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedId := "1"
 
-		httpStatusCode, body, _ := CreateTask("Test Task 1", entities.TAG_STATE_NEW)
+		httpStatusCode, body, _ := CreateTask("Test Task 1", entities.TASK_STATE_NEW)
 
 		assert.Equal(t, http.StatusCreated, httpStatusCode)
 		assert.Equal(t, expectedId, body)
 
-		httpStatusCode, body, _ = CreateTask("Test Task 1", entities.TAG_STATE_NEW)
+		httpStatusCode, body, _ = CreateTask("Test Task 1", entities.TASK_STATE_NEW)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, "\""+api.DUPLICATE_FOUND+"\"", body)
@@ -441,7 +441,7 @@ func TestApiCreateTask(t *testing.T) {
 	})))
 }
 
-func TestApiUpdateTask(t *testing.T) {
+func TestApiTaskUpdate(t *testing.T) {
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedId := "1"
 		expectedName := "Test Task 2"
@@ -593,7 +593,7 @@ func TestApiUpdateTask(t *testing.T) {
 	})))
 }
 
-func TestApiDeleteTask(t *testing.T) {
+func TestApiTaskDelete(t *testing.T) {
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expectedId := "1"
 

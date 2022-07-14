@@ -15,9 +15,10 @@ type Note struct {
 
 const (
 	NOTE_STATE_NEW     string = "NEW"
+	NOTE_STATE_BLOCKED string = "BLOCKED"
 	NOTE_STATE_DELETED string = "DELETED"
 )
 
 func GetPossibleNoteStates() []string {
-	return []string{NOTE_STATE_NEW, NOTE_STATE_DELETED}
+	return []string{NOTE_STATE_NEW, NOTE_STATE_BLOCKED, NOTE_STATE_DELETED}
 }

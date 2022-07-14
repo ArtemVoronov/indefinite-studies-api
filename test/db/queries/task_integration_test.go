@@ -23,6 +23,18 @@ const (
 	TEST_TASK_NAME_TEMPLATE string = "Test task "
 )
 
+func GenerateTask(id int) entities.Task {
+	return entities.Task{
+		Id:    id,
+		Name:  GenerateTaskName(TEST_TASK_NAME_TEMPLATE, id),
+		State: TEST_TASK_STATE_1,
+	}
+}
+
+func GenerateTaskName(template string, id int) string {
+	return template + strconv.Itoa(id)
+}
+
 func AssertEqualTasks(t *testing.T, expected entities.Task, actual entities.Task) {
 	assert.Equal(t, expected.Id, actual.Id)
 	assert.Equal(t, expected.Name, actual.Name)
@@ -38,10 +50,11 @@ func AssertEqualTaskArrays(t *testing.T, expected []entities.Task, actual []enti
 	}
 }
 
-func CreateTaskInDB(t *testing.T, name string, state string) {
+func CreateTaskInDB(t *testing.T, name string, state string) int {
 	taskId, err := queries.CreateTask(db.DB, name, state)
 	assert.Nil(t, err)
 	assert.NotEqual(t, taskId, -1)
+	return taskId
 }
 
 func CreateTasksInDB(t *testing.T, count int, nameTemplate string, state string) {
@@ -57,7 +70,7 @@ func TestDBTaskGet(t *testing.T) {
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		expected := entities.Task{Id: 1, Name: TEST_TASK_NAME_1, State: TEST_TASK_STATE_1}
+		expected := GenerateTask(1)
 
 		taskId, err := queries.CreateTask(db.DB, expected.Name, expected.State)
 
@@ -96,10 +109,10 @@ func TestDBTaskGetAll(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, 0, len(tasks))
 	})))
-	t.Run("ExpectedResult", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		var expectedTasks []entities.Task
 		for i := 1; i <= 10; i++ {
-			expectedTasks = append(expectedTasks, entities.Task{Id: i, Name: TEST_TASK_NAME_TEMPLATE + strconv.Itoa(i), State: entities.TASK_STATE_NEW})
+			expectedTasks = append(expectedTasks, GenerateTask(i))
 		}
 		CreateTasksInDB(t, 10, TEST_TASK_NAME_TEMPLATE, entities.TASK_STATE_NEW)
 
@@ -111,7 +124,7 @@ func TestDBTaskGetAll(t *testing.T) {
 	t.Run("LimitParameterCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		var expectedTasks []entities.Task
 		for i := 1; i <= 5; i++ {
-			expectedTasks = append(expectedTasks, entities.Task{Id: i, Name: TEST_TASK_NAME_TEMPLATE + strconv.Itoa(i), State: entities.TASK_STATE_NEW})
+			expectedTasks = append(expectedTasks, GenerateTask(i))
 		}
 
 		CreateTasksInDB(t, 10, TEST_TASK_NAME_TEMPLATE, entities.TASK_STATE_NEW)
@@ -124,7 +137,7 @@ func TestDBTaskGetAll(t *testing.T) {
 	t.Run("OffsetParameterCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		var expectedTasks []entities.Task
 		for i := 6; i <= 10; i++ {
-			expectedTasks = append(expectedTasks, entities.Task{Id: i, Name: TEST_TASK_NAME_TEMPLATE + strconv.Itoa(i), State: entities.TASK_STATE_NEW})
+			expectedTasks = append(expectedTasks, GenerateTask(i))
 		}
 
 		CreateTasksInDB(t, 10, TEST_TASK_NAME_TEMPLATE, entities.TASK_STATE_NEW)
@@ -157,9 +170,9 @@ func TestDBTaskUpdate(t *testing.T) {
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		expected := entities.Task{Id: 1, Name: TEST_TASK_NAME_2, State: TEST_TASK_STATE_2}
+		expected := GenerateTask(1)
 
-		taskId, err := queries.CreateTask(db.DB, TEST_TASK_NAME_1, TEST_TASK_STATE_1)
+		taskId, err := queries.CreateTask(db.DB, TEST_TASK_NAME_2, TEST_TASK_STATE_2)
 
 		assert.Nil(t, err)
 		assert.Equal(t, expected.Id, taskId)
@@ -211,8 +224,8 @@ func TestDBTaskDelete(t *testing.T) {
 	})))
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		var expectedTasks []entities.Task
-		expectedTasks = append(expectedTasks, entities.Task{Id: 1, Name: TEST_TASK_NAME_TEMPLATE + "1", State: entities.TASK_STATE_NEW})
-		expectedTasks = append(expectedTasks, entities.Task{Id: 3, Name: TEST_TASK_NAME_TEMPLATE + "3", State: entities.TASK_STATE_NEW})
+		expectedTasks = append(expectedTasks, GenerateTask(1))
+		expectedTasks = append(expectedTasks, GenerateTask(3))
 
 		taskIdToDelete := 2
 

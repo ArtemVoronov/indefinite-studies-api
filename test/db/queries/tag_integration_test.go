@@ -23,6 +23,18 @@ const (
 	TEST_TAG_NAME_TEMPLATE string = "Test tag "
 )
 
+func GenerateTag(id int) entities.Tag {
+	return entities.Tag{
+		Id:    id,
+		Name:  GenerateTagName(TEST_TAG_NAME_TEMPLATE, id),
+		State: TEST_TAG_STATE_1,
+	}
+}
+
+func GenerateTagName(template string, id int) string {
+	return template + strconv.Itoa(id)
+}
+
 func AssertEqualTags(t *testing.T, expected entities.Tag, actual entities.Tag) {
 	assert.Equal(t, expected.Id, actual.Id)
 	assert.Equal(t, expected.Name, actual.Name)
@@ -38,10 +50,11 @@ func AssertEqualTagArrays(t *testing.T, expected []entities.Tag, actual []entiti
 	}
 }
 
-func CreateTagInDB(t *testing.T, name string, state string) {
+func CreateTagInDB(t *testing.T, name string, state string) int {
 	tagId, err := queries.CreateTag(db.DB, name, state)
 	assert.Nil(t, err)
 	assert.NotEqual(t, tagId, -1)
+	return tagId
 }
 
 func CreateTagsInDB(t *testing.T, count int, nameTemplate string, state string) {
@@ -57,7 +70,7 @@ func TestDBTagGet(t *testing.T) {
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		expected := entities.Tag{Id: 1, Name: TEST_TAG_NAME_1, State: TEST_TAG_STATE_1}
+		expected := GenerateTag(1)
 
 		tagId, err := queries.CreateTag(db.DB, expected.Name, expected.State)
 
@@ -99,7 +112,7 @@ func TestDBTagGetAll(t *testing.T) {
 	t.Run("ExpectedResult", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		var expectedTags []entities.Tag
 		for i := 1; i <= 10; i++ {
-			expectedTags = append(expectedTags, entities.Tag{Id: i, Name: TEST_TAG_NAME_TEMPLATE + strconv.Itoa(i), State: entities.TAG_STATE_NEW})
+			expectedTags = append(expectedTags, GenerateTag(i))
 		}
 		CreateTagsInDB(t, 10, TEST_TAG_NAME_TEMPLATE, entities.TAG_STATE_NEW)
 
@@ -111,7 +124,7 @@ func TestDBTagGetAll(t *testing.T) {
 	t.Run("LimitParameterCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		var expectedTags []entities.Tag
 		for i := 1; i <= 5; i++ {
-			expectedTags = append(expectedTags, entities.Tag{Id: i, Name: TEST_TAG_NAME_TEMPLATE + strconv.Itoa(i), State: entities.TAG_STATE_NEW})
+			expectedTags = append(expectedTags, GenerateTag(i))
 		}
 
 		CreateTagsInDB(t, 10, TEST_TAG_NAME_TEMPLATE, entities.TAG_STATE_NEW)
@@ -124,7 +137,7 @@ func TestDBTagGetAll(t *testing.T) {
 	t.Run("OffsetParameterCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		var expectedTags []entities.Tag
 		for i := 6; i <= 10; i++ {
-			expectedTags = append(expectedTags, entities.Tag{Id: i, Name: TEST_TAG_NAME_TEMPLATE + strconv.Itoa(i), State: entities.TAG_STATE_NEW})
+			expectedTags = append(expectedTags, GenerateTag(i))
 		}
 
 		CreateTagsInDB(t, 10, TEST_TAG_NAME_TEMPLATE, entities.TAG_STATE_NEW)
@@ -157,9 +170,9 @@ func TestDBTagUpdate(t *testing.T) {
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		expected := entities.Tag{Id: 1, Name: TEST_TAG_NAME_2, State: TEST_TAG_STATE_2}
+		expected := GenerateTag(1)
 
-		tagId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+		tagId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_2, TEST_TAG_STATE_2)
 
 		assert.Nil(t, err)
 		assert.Equal(t, expected.Id, tagId)
@@ -211,8 +224,8 @@ func TestDBTagDelete(t *testing.T) {
 	})))
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		var expectedTags []entities.Tag
-		expectedTags = append(expectedTags, entities.Tag{Id: 1, Name: TEST_TAG_NAME_TEMPLATE + "1", State: entities.TAG_STATE_NEW})
-		expectedTags = append(expectedTags, entities.Tag{Id: 3, Name: TEST_TAG_NAME_TEMPLATE + "3", State: entities.TAG_STATE_NEW})
+		expectedTags = append(expectedTags, GenerateTag(1))
+		expectedTags = append(expectedTags, GenerateTag(3))
 
 		tagIdToDelete := 2
 

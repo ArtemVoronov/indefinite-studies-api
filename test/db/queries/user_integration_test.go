@@ -73,10 +73,11 @@ func AssertEqualUserArrays(t *testing.T, expected []entities.User, actual []enti
 	}
 }
 
-func CreateUserInDB(t *testing.T, login string, email string, password string, role string, state string) {
+func CreateUserInDB(t *testing.T, login string, email string, password string, role string, state string) int {
 	userId, err := queries.CreateUser(db.DB, login, email, password, role, state)
 	assert.Nil(t, err)
 	assert.NotEqual(t, userId, -1)
+	return userId
 }
 
 func CreateUsersInDB(t *testing.T, count int, loginTemplate string, emailTemplate string, passwordTemplate string, role string, state string) {
@@ -86,12 +87,12 @@ func CreateUsersInDB(t *testing.T, count int, loginTemplate string, emailTemplat
 }
 
 func TestDBUserGet(t *testing.T) {
-	t.Run("ExpectedNotFoundError", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		_, actualError := queries.GetUser(db.DB, 1)
 
 		assert.Equal(t, sql.ErrNoRows, actualError)
 	})))
-	t.Run("ExpectedResult", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		expected := GenerateUser(1)
 
 		userId, err := queries.CreateUser(db.DB, expected.Login, expected.Email, expected.Password, expected.Role, expected.State)
@@ -131,7 +132,7 @@ func TestDBUserGetAll(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, 0, len(users))
 	})))
-	t.Run("ExpectedResult", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		var expectedUsers []entities.User
 		for i := 1; i <= 10; i++ {
 			expectedUsers = append(expectedUsers, GenerateUser(i))
@@ -170,7 +171,7 @@ func TestDBUserGetAll(t *testing.T) {
 }
 
 func TestDBUserUpdate(t *testing.T) {
-	t.Run("ExpectedNotFoundError", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		err := queries.UpdateUser(db.DB, 1, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 
 		assert.Equal(t, sql.ErrNoRows, err)
@@ -185,7 +186,7 @@ func TestDBUserUpdate(t *testing.T) {
 
 		assert.Nil(t, err)
 
-		err = queries.UpdateUser(db.DB, 1, TEST_USER_LOGIN_2, TEST_USER_EMAIL_2, TEST_USER_PASSWORD_2, TEST_USER_ROLE_2, TEST_USER_STATE_2)
+		err = queries.UpdateUser(db.DB, userId, TEST_USER_LOGIN_2, TEST_USER_EMAIL_2, TEST_USER_PASSWORD_2, TEST_USER_ROLE_2, TEST_USER_STATE_2)
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))

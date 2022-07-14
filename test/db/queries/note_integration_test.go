@@ -21,11 +21,30 @@ const (
 	TEST_NOTE_STATE_1 string = entities.NOTE_STATE_NEW
 	TEST_NOTE_TEXT_2  string = "Test text 2"
 	TEST_NOTE_TOPIC_2 string = "Test topic 2"
-	TEST_NOTE_STATE_2 string = entities.NOTE_STATE_NEW
+	TEST_NOTE_STATE_2 string = entities.NOTE_STATE_BLOCKED
 
 	TEST_NOTE_TEXT_TEMPLATE  string = "Test text "
 	TEST_NOTE_TOPIC_TEMPLATE string = "Test topic "
 )
+
+func GenerateNoteText(template string, id int) string {
+	return template + strconv.Itoa(id)
+}
+
+func GenerateNoteTopic(template string, id int) string {
+	return template + strconv.Itoa(id)
+}
+
+func GenerateNote(noteId int, userId int, tagId int) entities.Note {
+	return entities.Note{
+		Id:     noteId,
+		Text:   GenerateNoteText(TEST_NOTE_TEXT_TEMPLATE, noteId),
+		Topic:  GenerateNoteTopic(TEST_NOTE_TOPIC_TEMPLATE, noteId),
+		TagId:  tagId,
+		UserId: userId,
+		State:  TEST_USER_STATE_1,
+	}
+}
 
 func AssertEqualNotes(t *testing.T, expected entities.Note, actual entities.Note) {
 	assert.Equal(t, expected.Id, actual.Id)
@@ -34,8 +53,6 @@ func AssertEqualNotes(t *testing.T, expected entities.Note, actual entities.Note
 	assert.Equal(t, expected.TagId, actual.TagId)
 	assert.Equal(t, expected.UserId, actual.UserId)
 	assert.Equal(t, expected.State, actual.State)
-	assert.Equal(t, expected.CreateDate, actual.CreateDate)
-	assert.Equal(t, expected.LastUpdateDate, actual.LastUpdateDate)
 }
 
 func AssertEqualNoteArrays(t *testing.T, expected []entities.Note, actual []entities.Note) {
@@ -47,354 +64,193 @@ func AssertEqualNoteArrays(t *testing.T, expected []entities.Note, actual []enti
 	}
 }
 
-func CreateNoteInDB(t *testing.T, text string, topic string, tagId int, userId int, state string) {
+func CreateNoteInDB(t *testing.T, text string, topic string, tagId int, userId int, state string) int {
 	noteId, err := queries.CreateNote(db.DB, text, topic, tagId, userId, state)
 	assert.Nil(t, err)
 	assert.NotEqual(t, noteId, -1)
+	return noteId
 }
 
 func CreateNotesInDB(t *testing.T, count int, textTemplate string, topicTemplate string, tagId int, userId int, state string) {
 	for i := 1; i <= count; i++ {
-		CreateNoteInDB(t, textTemplate+strconv.Itoa(i), topicTemplate+strconv.Itoa(i), tagId, userId, state)
+		CreateNoteInDB(t, GenerateNoteText(textTemplate, i), GenerateNoteTopic(topicTemplate, i), tagId, userId, state)
 	}
 }
 
-// TODO: finish refactoring
-
 func TestDBNoteGet(t *testing.T) {
-	t.Run("ExpectedNotFoundError", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		expectedError := sql.ErrNoRows
-
+	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
 		_, actualError := queries.GetNote(db.DB, 1)
 
-		assert.Equal(t, expectedError, actualError)
+		assert.Equal(t, sql.ErrNoRows, actualError)
 	})))
-	t.Run("ExpectedResult", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+		userId := CreateUserInDB(t, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
+		tagId := CreateTagInDB(t, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
-		userId, err := queries.CreateUser(db.DB, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
-		if err != nil || userId == -1 {
-			t.Errorf("Unable to create user: %s", err)
-		}
+		expected := GenerateNote(1, userId, tagId)
 
-		tagId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
-		if err != nil || tagId == -1 {
-			t.Errorf("Unable to create tag: %s", err)
-		}
+		noteId, err := queries.CreateNote(db.DB, expected.Text, expected.Topic, expected.TagId, expected.UserId, expected.State)
 
-		expectedNoteId, err := queries.CreateNote(db.DB, TEST_NOTE_TEXT_1, TEST_NOTE_TOPIC_1, tagId, userId, TEST_NOTE_STATE_1)
-		if err != nil || expectedNoteId == -1 {
-			t.Errorf("Unable to create note: %s", err)
-		}
+		assert.Nil(t, err)
+		assert.Equal(t, expected.Id, noteId)
 
-		actual, err := queries.GetNote(db.DB, expectedNoteId)
+		actual, err := queries.GetNote(db.DB, noteId)
 
-		assert.Equal(t, expectedNoteId, actual.Id)
-		assert.Equal(t, TEST_NOTE_TEXT_1, actual.Text)
-		assert.Equal(t, TEST_NOTE_TOPIC_1, actual.Topic)
-		assert.Equal(t, tagId, actual.TagId)
-		assert.Equal(t, userId, actual.UserId)
-		assert.Equal(t, TEST_NOTE_STATE_1, actual.State)
+		AssertEqualNotes(t, expected, actual)
 	})))
 }
 
 func TestDBNoteCreate(t *testing.T) {
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		expectedNoteId := 1
+		userId := CreateUserInDB(t, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
+		tagId := CreateTagInDB(t, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
-		userId, err := queries.CreateUser(db.DB, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
-		if err != nil || userId == -1 {
-			t.Errorf("Unable to create user: %s", err)
-		}
+		expected := GenerateNote(1, userId, tagId)
 
-		tagId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
-		if err != nil || tagId == -1 {
-			t.Errorf("Unable to create tag: %s", err)
-		}
+		noteId, err := queries.CreateNote(db.DB, expected.Text, expected.Topic, expected.TagId, expected.UserId, expected.State)
 
-		actualNoteId, err := queries.CreateNote(db.DB, TEST_NOTE_TEXT_1, TEST_NOTE_TOPIC_1, tagId, userId, TEST_NOTE_STATE_1)
-		if err != nil || actualNoteId == -1 {
-			t.Errorf("Unable to create note: %s", err)
-		}
-
-		assert.Equal(t, expectedNoteId, actualNoteId)
+		assert.Nil(t, err)
+		assert.Equal(t, expected.Id, noteId)
 	})))
 }
 
 func TestDBNoteGetAll(t *testing.T) {
 	t.Run("ExpectedEmpty", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		expectedArrayLength := 0
-
 		notes, err := queries.GetNotes(db.DB, 50, 0)
-		if err != nil {
-			t.Errorf("Unable to get to notes : %s", err)
-		}
-		actualArrayLength := len(notes)
 
-		assert.Equal(t, expectedArrayLength, actualArrayLength)
+		assert.Nil(t, err)
+		assert.Equal(t, 0, len(notes))
 	})))
-	t.Run("ExpectedResult", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		expectedArrayLength := 3
-		userId, err := queries.CreateUser(db.DB, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
-		if err != nil || userId == -1 {
-			t.Errorf("Unable to create user: %s", err)
+	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+		userId := CreateUserInDB(t, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
+		tagId := CreateTagInDB(t, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+		var expectedNotes []entities.Note
+		for i := 1; i <= 10; i++ {
+			expectedNotes = append(expectedNotes, GenerateNote(i, userId, tagId))
 		}
+		CreateNotesInDB(t, 10, TEST_NOTE_TEXT_TEMPLATE, TEST_NOTE_TOPIC_TEMPLATE, tagId, userId, TEST_NOTE_STATE_1)
+		actualNotes, err := queries.GetNotes(db.DB, 50, 0)
 
-		tagId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
-		if err != nil || tagId == -1 {
-			t.Errorf("Unable to create tag: %s", err)
-		}
-
-		for i := 0; i < 3; i++ {
-			noteId, err := queries.CreateNote(db.DB, TEST_NOTE_TEXT_TEMPLATE+strconv.Itoa(i), TEST_NOTE_TOPIC_TEMPLATE+strconv.Itoa(i), tagId, userId, TEST_NOTE_STATE_1)
-			if err != nil || noteId == -1 {
-				t.Errorf("Unable to create note: %s", err)
-			}
-		}
-		notes, err := queries.GetNotes(db.DB, 50, 0)
-		if err != nil {
-			t.Errorf("Unable to get to notes : %s", err)
-		}
-		actualArrayLength := len(notes)
-
-		assert.Equal(t, expectedArrayLength, actualArrayLength)
-		for i, note := range notes {
-			assert.Equal(t, i+1, note.Id)
-			assert.Equal(t, TEST_NOTE_TEXT_TEMPLATE+strconv.Itoa(i), note.Text)
-			assert.Equal(t, TEST_NOTE_TOPIC_TEMPLATE+strconv.Itoa(i), note.Topic)
-			assert.Equal(t, tagId, note.TagId)
-			assert.Equal(t, userId, note.UserId)
-			assert.Equal(t, TEST_NOTE_STATE_1, note.State)
-		}
+		assert.Nil(t, err)
+		AssertEqualNoteArrays(t, expectedNotes, actualNotes)
 	})))
 	t.Run("LimitParameterCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		expectedArrayLength := 5
-		userId, err := queries.CreateUser(db.DB, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
-		if err != nil || userId == -1 {
-			t.Errorf("Unable to create user: %s", err)
+		userId := CreateUserInDB(t, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
+		tagId := CreateTagInDB(t, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+		var expectedNotes []entities.Note
+		for i := 1; i <= 5; i++ {
+			expectedNotes = append(expectedNotes, GenerateNote(i, userId, tagId))
 		}
+		CreateNotesInDB(t, 10, TEST_NOTE_TEXT_TEMPLATE, TEST_NOTE_TOPIC_TEMPLATE, tagId, userId, TEST_NOTE_STATE_1)
+		actualNotes, err := queries.GetNotes(db.DB, 5, 0)
 
-		tagId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
-		if err != nil || tagId == -1 {
-			t.Errorf("Unable to create tag: %s", err)
-		}
-
-		for i := 0; i < 10; i++ {
-			noteId, err := queries.CreateNote(db.DB, TEST_NOTE_TEXT_TEMPLATE+strconv.Itoa(i), TEST_NOTE_TOPIC_TEMPLATE+strconv.Itoa(i), tagId, userId, TEST_NOTE_STATE_1)
-			if err != nil || noteId == -1 {
-				t.Errorf("Unable to create note: %s", err)
-			}
-		}
-
-		notes, err := queries.GetNotes(db.DB, 5, 0)
-		if err != nil {
-			t.Errorf("Unable to get to notes : %s", err)
-		}
-		actualArrayLength := len(notes)
-
-		assert.Equal(t, expectedArrayLength, actualArrayLength)
-		for i, note := range notes {
-			assert.Equal(t, i+1, note.Id)
-			assert.Equal(t, TEST_NOTE_TEXT_TEMPLATE+strconv.Itoa(i), note.Text)
-			assert.Equal(t, TEST_NOTE_TOPIC_TEMPLATE+strconv.Itoa(i), note.Topic)
-			assert.Equal(t, tagId, note.TagId)
-			assert.Equal(t, userId, note.UserId)
-			assert.Equal(t, TEST_NOTE_STATE_1, note.State)
-		}
+		assert.Nil(t, err)
+		AssertEqualNoteArrays(t, expectedNotes, actualNotes)
 	})))
 	t.Run("OffsetParameterCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		expectedArrayLength := 5
-		userId, err := queries.CreateUser(db.DB, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
-		if err != nil || userId == -1 {
-			t.Errorf("Unable to create user: %s", err)
+		userId := CreateUserInDB(t, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
+		tagId := CreateTagInDB(t, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+		var expectedNotes []entities.Note
+		for i := 6; i <= 10; i++ {
+			expectedNotes = append(expectedNotes, GenerateNote(i, userId, tagId))
 		}
+		CreateNotesInDB(t, 10, TEST_NOTE_TEXT_TEMPLATE, TEST_NOTE_TOPIC_TEMPLATE, tagId, userId, TEST_NOTE_STATE_1)
+		actualNotes, err := queries.GetNotes(db.DB, 50, 5)
 
-		tagId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
-		if err != nil || tagId == -1 {
-			t.Errorf("Unable to create tag: %s", err)
-		}
-		for i := 0; i < 10; i++ {
-			noteId, err := queries.CreateNote(db.DB, TEST_NOTE_TEXT_TEMPLATE+strconv.Itoa(i), TEST_NOTE_TOPIC_TEMPLATE+strconv.Itoa(i), tagId, userId, TEST_NOTE_STATE_1)
-			if err != nil || noteId == -1 {
-				t.Errorf("Unable to create note: %s", err)
-			}
-		}
-
-		notes, err := queries.GetNotes(db.DB, 50, 5)
-		if err != nil {
-			t.Errorf("Unable to get to notes : %s", err)
-		}
-		actualArrayLength := len(notes)
-
-		assert.Equal(t, expectedArrayLength, actualArrayLength)
-		for i, note := range notes {
-			assert.Equal(t, i+6, note.Id)
-			assert.Equal(t, TEST_NOTE_TEXT_TEMPLATE+strconv.Itoa(i+5), note.Text)
-			assert.Equal(t, TEST_NOTE_TOPIC_TEMPLATE+strconv.Itoa(i+5), note.Topic)
-			assert.Equal(t, tagId, note.TagId)
-			assert.Equal(t, userId, note.UserId)
-			assert.Equal(t, TEST_NOTE_STATE_1, note.State)
-		}
+		assert.Nil(t, err)
+		AssertEqualNoteArrays(t, expectedNotes, actualNotes)
 	})))
 }
 
 func TestDBNoteUpdate(t *testing.T) {
-	t.Run("ExpectedNotFoundError", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		expectedError := sql.ErrNoRows
+	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
+		userId := CreateUserInDB(t, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
+		tagId := CreateTagInDB(t, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
-		userId, err := queries.CreateUser(db.DB, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
-		if err != nil || userId == -1 {
-			t.Errorf("Unable to create user: %s", err)
-		}
+		err := queries.UpdateNote(db.DB, 1, TEST_NOTE_TEXT_1, TEST_NOTE_TOPIC_1, tagId, userId, TEST_NOTE_STATE_1)
 
-		tagId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
-		if err != nil || tagId == -1 {
-			t.Errorf("Unable to create tag: %s", err)
-		}
-
-		actualError := queries.UpdateNote(db.DB, 1, TEST_NOTE_TEXT_1, TEST_NOTE_TOPIC_1, tagId, userId, TEST_NOTE_STATE_1)
-
-		assert.Equal(t, expectedError, actualError)
+		assert.Equal(t, sql.ErrNoRows, err)
 	})))
 	t.Run("DeletedCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		expectedError := sql.ErrNoRows
-
-		userId, err := queries.CreateUser(db.DB, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
-		if err != nil || userId == -1 {
-			t.Errorf("Unable to create user: %s", err)
-		}
-
-		tagId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
-		if err != nil || tagId == -1 {
-			t.Errorf("Unable to create tag: %s", err)
-		}
+		userId := CreateUserInDB(t, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
+		tagId := CreateTagInDB(t, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
 		noteId, err := queries.CreateNote(db.DB, TEST_NOTE_TEXT_1, TEST_NOTE_TOPIC_1, tagId, userId, TEST_NOTE_STATE_1)
-		if err != nil || noteId == -1 {
-			t.Errorf("Unable to create note: %s", err)
-		}
+
+		assert.Nil(t, err)
+		assert.NotEqual(t, noteId, -1)
 
 		err = queries.DeleteNote(db.DB, noteId)
-		if err != nil {
-			t.Errorf("Unable to delete note: %s", err)
-		}
 
-		actualError := queries.UpdateNote(db.DB, 1, TEST_NOTE_TEXT_2, TEST_NOTE_TOPIC_2, tagId, userId, TEST_NOTE_STATE_2)
+		assert.Nil(t, err)
 
-		assert.Equal(t, expectedError, actualError)
+		err = queries.UpdateNote(db.DB, noteId, TEST_NOTE_TEXT_2, TEST_NOTE_TOPIC_2, tagId, userId, TEST_NOTE_STATE_2)
+
+		assert.Equal(t, sql.ErrNoRows, err)
 	})))
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		expectedText := TEST_NOTE_TEXT_2
-		expectedTopic := TEST_NOTE_TOPIC_2
-		expectedState := TEST_NOTE_STATE_2
-		expectedUserId, err := queries.CreateUser(db.DB, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
-		if err != nil || expectedUserId == -1 {
-			t.Errorf("Unable to create user: %s", err)
-		}
+		userId := CreateUserInDB(t, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
+		tagId := CreateTagInDB(t, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
-		expectedTagId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
-		if err != nil || expectedTagId == -1 {
-			t.Errorf("Unable to create tag: %s", err)
-		}
+		expected := GenerateNote(1, userId, tagId)
 
-		expectedId, err := queries.CreateNote(db.DB, TEST_NOTE_TEXT_1, TEST_NOTE_TOPIC_1, expectedUserId, expectedUserId, TEST_NOTE_STATE_1)
-		if err != nil || expectedId == -1 {
-			t.Errorf("Unable to create note: %s", err)
-		}
+		noteId, err := queries.CreateNote(db.DB, TEST_NOTE_TEXT_2, TEST_NOTE_TOPIC_2, userId, tagId, TEST_NOTE_STATE_2)
 
-		err = queries.UpdateNote(db.DB, expectedId, TEST_NOTE_TEXT_2, TEST_NOTE_TOPIC_2, expectedTagId, expectedUserId, TEST_NOTE_STATE_2)
-		if err != nil {
-			t.Errorf("Unable to update user: %s", err)
-		}
+		assert.Nil(t, err)
+		assert.Equal(t, expected.Id, noteId)
 
-		actual, err := queries.GetNote(db.DB, expectedId)
+		err = queries.UpdateNote(db.DB, expected.Id, expected.Text, expected.Topic, expected.TagId, expected.UserId, expected.State)
 
-		assert.Equal(t, expectedId, actual.Id)
-		assert.Equal(t, expectedText, actual.Text)
-		assert.Equal(t, expectedTopic, actual.Topic)
-		assert.Equal(t, expectedTagId, actual.TagId)
-		assert.Equal(t, expectedUserId, actual.UserId)
-		assert.Equal(t, expectedState, actual.State)
+		assert.Nil(t, err)
+
+		actual, err := queries.GetNote(db.DB, expected.Id)
+
+		AssertEqualNotes(t, expected, actual)
 	})))
 }
 
 func TestDBNoteDelete(t *testing.T) {
 	t.Run("NotFoundCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		notExistentNoteId := 1
-		err := queries.DeleteNote(db.DB, notExistentNoteId)
+		err := queries.DeleteNote(db.DB, 1)
+
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
 	t.Run("AlreadyDeletedCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		userId, err := queries.CreateUser(db.DB, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
-		assert.Nil(t, err)
-		assert.NotEqual(t, userId, -1)
+		userId := CreateUserInDB(t, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
+		tagId := CreateTagInDB(t, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+		noteId := CreateNoteInDB(t, TEST_NOTE_TEXT_1, TEST_NOTE_TOPIC_1, tagId, userId, TEST_NOTE_STATE_1)
 
-		tagId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
-		assert.Nil(t, err)
-		assert.NotEqual(t, tagId, -1)
+		err := queries.DeleteNote(db.DB, noteId)
 
-		noteId, err := queries.CreateNote(db.DB, TEST_NOTE_TEXT_1, TEST_NOTE_TOPIC_1, tagId, userId, TEST_NOTE_STATE_1)
-		assert.Nil(t, err)
-		assert.NotEqual(t, noteId, -1)
-
-		err = queries.DeleteNote(db.DB, noteId)
 		assert.Nil(t, err)
 
 		err = queries.DeleteNote(db.DB, noteId)
+
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
 	t.Run("BasicCase", integrationTesting.RunWithRecreateDB((func(t *testing.T) {
-		expectedFirstNoteId := 1
-		expectedSecondNoteId := 3
-		expectedState := TEST_USER_STATE_1
-		expectedError := sql.ErrNoRows
-		expectedArrayLength := 2
+		userId := CreateUserInDB(t, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
+		tagId := CreateTagInDB(t, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+
+		var expectedNotes []entities.Note
+		expectedNotes = append(expectedNotes, GenerateNote(1, userId, tagId))
+		expectedNotes = append(expectedNotes, GenerateNote(3, userId, tagId))
+
 		noteIdToDelete := 2
-		userId, err := queries.CreateUser(db.DB, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
-		if err != nil || userId == -1 {
-			t.Errorf("Unable to create user: %s", err)
-		}
 
-		tagId, err := queries.CreateTag(db.DB, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
-		if err != nil || tagId == -1 {
-			t.Errorf("Unable to create tag: %s", err)
-		}
+		CreateNotesInDB(t, 3, TEST_NOTE_TEXT_TEMPLATE, TEST_NOTE_TOPIC_TEMPLATE, tagId, userId, TEST_NOTE_STATE_1)
 
-		for i := 0; i < 3; i++ {
-			noteId, err := queries.CreateNote(db.DB, TEST_NOTE_TEXT_TEMPLATE+strconv.Itoa(i), TEST_NOTE_TOPIC_TEMPLATE+strconv.Itoa(i), tagId, userId, TEST_NOTE_STATE_1)
-			if err != nil || noteId == -1 {
-				t.Errorf("Unable to create note: %s", err)
-			}
-		}
+		err := queries.DeleteNote(db.DB, noteIdToDelete)
 
-		err = queries.DeleteNote(db.DB, noteIdToDelete)
-		if err != nil {
-			t.Errorf("Unable to delete note: %s", err)
-		}
+		assert.Nil(t, err)
 
 		notes, err := queries.GetNotes(db.DB, 50, 0)
-		if err != nil {
-			t.Errorf("Unable to get to notes : %s", err)
-		}
-		actualArrayLength := len(notes)
 
-		assert.Equal(t, expectedArrayLength, actualArrayLength)
+		assert.Nil(t, err)
+		AssertEqualNoteArrays(t, expectedNotes, notes)
 
-		assert.Equal(t, expectedFirstNoteId, notes[0].Id)
-		assert.Equal(t, TEST_NOTE_TEXT_TEMPLATE+"0", notes[0].Text)
-		assert.Equal(t, TEST_NOTE_TOPIC_TEMPLATE+"0", notes[0].Topic)
-		assert.Equal(t, tagId, notes[0].TagId)
-		assert.Equal(t, userId, notes[0].UserId)
-		assert.Equal(t, expectedState, notes[0].State)
+		_, err = queries.GetNote(db.DB, noteIdToDelete)
 
-		assert.Equal(t, expectedSecondNoteId, notes[1].Id)
-		assert.Equal(t, TEST_NOTE_TEXT_TEMPLATE+"2", notes[1].Text)
-		assert.Equal(t, TEST_NOTE_TOPIC_TEMPLATE+"2", notes[1].Topic)
-		assert.Equal(t, tagId, notes[1].TagId)
-		assert.Equal(t, userId, notes[1].UserId)
-		assert.Equal(t, expectedState, notes[1].State)
-
-		_, actualError := queries.GetNote(db.DB, noteIdToDelete)
-
-		assert.Equal(t, expectedError, actualError)
+		assert.Equal(t, sql.ErrNoRows, err)
 	})))
 }
