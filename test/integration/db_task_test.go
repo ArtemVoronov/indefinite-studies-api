@@ -4,6 +4,7 @@
 package integration
 
 import (
+	"context"
 	"database/sql"
 	"strconv"
 	"testing"
@@ -49,198 +50,264 @@ func AssertEqualTaskArrays(t *testing.T, expected []entities.Task, actual []enti
 	}
 }
 
-func CreateTaskInDB(t *testing.T, name string, state string) int {
-	taskId, err := queries.CreateTask(db.GetInstance().GetDB(), name, state)
+func CreateTaskInDB(t *testing.T, database *sql.DB, ctx context.Context, name string, state string) int {
+	taskId, err := queries.CreateTask(database, ctx, name, state)
 	assert.Nil(t, err)
 	assert.NotEqual(t, taskId, -1)
 	return taskId
 }
 
-func CreateTasksInDB(t *testing.T, count int, nameTemplate string, state string) {
+func CreateTasksInDB(t *testing.T, database *sql.DB, ctx context.Context, count int, nameTemplate string, state string) {
 	for i := 1; i <= count; i++ {
-		CreateTaskInDB(t, GenerateTaskName(TEST_TASK_NAME_TEMPLATE, i), state)
+		CreateTaskInDB(t, database, ctx, GenerateTaskName(TEST_TASK_NAME_TEMPLATE, i), state)
 	}
 }
 
 func TestDBTaskGet(t *testing.T) {
 	t.Run("NotFoundCase", RunWithRecreateDB((func(t *testing.T) {
-		_, err := queries.GetTask(db.GetInstance().GetDB(), 1)
+		db.RunWithWithTimeout(func(database *sql.DB, ctx context.Context) {
+			_, err := queries.GetTask(database, ctx, 1)
 
-		assert.Equal(t, sql.ErrNoRows, err)
+			assert.Equal(t, sql.ErrNoRows, err)
+		})()
 	})))
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
-		expected := GenerateTask(1)
+		db.RunWithWithTimeout(func(database *sql.DB, ctx context.Context) {
+			expected := GenerateTask(1)
 
-		taskId, err := queries.CreateTask(db.GetInstance().GetDB(), expected.Name, expected.State)
+			taskId, err := queries.CreateTask(database, ctx, expected.Name, expected.State)
 
-		assert.Nil(t, err)
-		assert.Equal(t, taskId, expected.Id)
+			assert.Nil(t, err)
+			assert.Equal(t, taskId, expected.Id)
 
-		actual, err := queries.GetTask(db.GetInstance().GetDB(), taskId)
+			actual, err := queries.GetTask(database, ctx, taskId)
 
-		AssertEqualTasks(t, expected, actual)
+			AssertEqualTasks(t, expected, actual)
+		})()
+	})))
+	t.Run("TimeoutErrorExpected", RunWithRecreateDB((func(t *testing.T) {
+		t.Fatalf("not implemented")
+		// TODO: add configurable timeout for db queries
+		// db.RunWithWithTimeout(func(database *sql.DB, ctx context.Context) {
+		//	_, err = tx.ExecContext(ctx, "SELECT pg_sleep(10)") // todo clean
+		// })()
 	})))
 }
 
 func TestDBTaskCreate(t *testing.T) {
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
-		taskId, err := queries.CreateTask(db.GetInstance().GetDB(), TEST_TASK_NAME_1, TEST_TASK_STATE_1)
+		db.RunWithWithTimeout(func(database *sql.DB, ctx context.Context) {
+			taskId, err := queries.CreateTask(database, ctx, TEST_TASK_NAME_1, TEST_TASK_STATE_1)
 
-		assert.Nil(t, err)
-		assert.Equal(t, taskId, 1)
+			assert.Nil(t, err)
+			assert.Equal(t, taskId, 1)
+		})()
 	})))
 	t.Run("DuplicateCase", RunWithRecreateDB((func(t *testing.T) {
-		taskId, err := queries.CreateTask(db.GetInstance().GetDB(), TEST_TASK_NAME_1, TEST_TASK_STATE_1)
+		db.RunWithWithTimeout(func(database *sql.DB, ctx context.Context) {
+			taskId, err := queries.CreateTask(database, ctx, TEST_TASK_NAME_1, TEST_TASK_STATE_1)
 
-		assert.Nil(t, err)
-		assert.NotEqual(t, taskId, -1)
+			assert.Nil(t, err)
+			assert.NotEqual(t, taskId, -1)
 
-		_, err = queries.CreateTask(db.GetInstance().GetDB(), TEST_TASK_NAME_1, TEST_TASK_STATE_1)
+			_, err = queries.CreateTask(database, ctx, TEST_TASK_NAME_1, TEST_TASK_STATE_1)
 
-		assert.Equal(t, db.ErrorTaskDuplicateKey, err)
+			assert.Equal(t, db.ErrorTaskDuplicateKey, err)
+		})()
+	})))
+	t.Run("TimeoutErrorExpected", RunWithRecreateDB((func(t *testing.T) {
+		t.Fatalf("not implemented")
+		// TODO: add configurable timeout for db queries
+		// db.RunWithWithTimeout(func(database *sql.DB, ctx context.Context) {
+		//	_, err = tx.ExecContext(ctx, "SELECT pg_sleep(10)") // todo clean
+		// })()
 	})))
 }
 
 func TestDBTaskGetAll(t *testing.T) {
 	t.Run("ExpectedEmpty", RunWithRecreateDB((func(t *testing.T) {
-		tasks, err := queries.GetTasks(db.GetInstance().GetDB(), 50, 0)
+		db.RunWithWithTimeout(func(database *sql.DB, ctx context.Context) {
+			tasks, err := queries.GetTasks(database, ctx, 50, 0)
 
-		assert.Nil(t, err)
-		assert.Equal(t, 0, len(tasks))
+			assert.Nil(t, err)
+			assert.Equal(t, 0, len(tasks))
+		})()
 	})))
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
-		var expectedTasks []entities.Task
-		for i := 1; i <= 10; i++ {
-			expectedTasks = append(expectedTasks, GenerateTask(i))
-		}
-		CreateTasksInDB(t, 10, TEST_TASK_NAME_TEMPLATE, entities.TASK_STATE_NEW)
+		db.RunWithWithTimeout(func(database *sql.DB, ctx context.Context) {
+			var expectedTasks []entities.Task
+			for i := 1; i <= 10; i++ {
+				expectedTasks = append(expectedTasks, GenerateTask(i))
+			}
+			CreateTasksInDB(t, database, ctx, 10, TEST_TASK_NAME_TEMPLATE, entities.TASK_STATE_NEW)
 
-		actualTasks, err := queries.GetTasks(db.GetInstance().GetDB(), 50, 0)
+			actualTasks, err := queries.GetTasks(database, ctx, 50, 0)
 
-		assert.Nil(t, err)
-		AssertEqualTaskArrays(t, expectedTasks, actualTasks)
+			assert.Nil(t, err)
+			AssertEqualTaskArrays(t, expectedTasks, actualTasks)
+		})()
 	})))
 	t.Run("LimitParameterCase", RunWithRecreateDB((func(t *testing.T) {
-		var expectedTasks []entities.Task
-		for i := 1; i <= 5; i++ {
-			expectedTasks = append(expectedTasks, GenerateTask(i))
-		}
+		db.RunWithWithTimeout(func(database *sql.DB, ctx context.Context) {
+			var expectedTasks []entities.Task
+			for i := 1; i <= 5; i++ {
+				expectedTasks = append(expectedTasks, GenerateTask(i))
+			}
 
-		CreateTasksInDB(t, 10, TEST_TASK_NAME_TEMPLATE, entities.TASK_STATE_NEW)
+			CreateTasksInDB(t, database, ctx, 10, TEST_TASK_NAME_TEMPLATE, entities.TASK_STATE_NEW)
 
-		actualTasks, err := queries.GetTasks(db.GetInstance().GetDB(), 5, 0)
+			actualTasks, err := queries.GetTasks(database, ctx, 5, 0)
 
-		assert.Nil(t, err)
-		AssertEqualTaskArrays(t, expectedTasks, actualTasks)
+			assert.Nil(t, err)
+			AssertEqualTaskArrays(t, expectedTasks, actualTasks)
+		})()
 	})))
 	t.Run("OffsetParameterCase", RunWithRecreateDB((func(t *testing.T) {
-		var expectedTasks []entities.Task
-		for i := 6; i <= 10; i++ {
-			expectedTasks = append(expectedTasks, GenerateTask(i))
-		}
+		db.RunWithWithTimeout(func(database *sql.DB, ctx context.Context) {
+			var expectedTasks []entities.Task
+			for i := 6; i <= 10; i++ {
+				expectedTasks = append(expectedTasks, GenerateTask(i))
+			}
 
-		CreateTasksInDB(t, 10, TEST_TASK_NAME_TEMPLATE, entities.TASK_STATE_NEW)
+			CreateTasksInDB(t, database, ctx, 10, TEST_TASK_NAME_TEMPLATE, entities.TASK_STATE_NEW)
 
-		actualTasks, err := queries.GetTasks(db.GetInstance().GetDB(), 50, 5)
+			actualTasks, err := queries.GetTasks(database, ctx, 50, 5)
 
-		assert.Nil(t, err)
-		AssertEqualTaskArrays(t, expectedTasks, actualTasks)
+			assert.Nil(t, err)
+			AssertEqualTaskArrays(t, expectedTasks, actualTasks)
+		})()
 	})))
+	t.Run("TimeoutErrorExpected", RunWithRecreateDB((func(t *testing.T) {
+		t.Fatalf("not implemented")
+		// TODO: add configurable timeout for db queries
+		// db.RunWithWithTimeout(func(database *sql.DB, ctx context.Context) {
+		//	_, err = tx.ExecContext(ctx, "SELECT pg_sleep(10)") // todo clean
+		// })()
+	})))
+
 }
 
 func TestDBTaskUpdate(t *testing.T) {
 	t.Run("NotFoundCase", RunWithRecreateDB((func(t *testing.T) {
-		err := queries.UpdateTask(db.GetInstance().GetDB(), 1, TEST_TASK_NAME_1, TEST_TASK_STATE_1)
+		db.RunWithWithTimeout(func(database *sql.DB, ctx context.Context) {
+			err := queries.UpdateTask(database, ctx, 1, TEST_TASK_NAME_1, TEST_TASK_STATE_1)
 
-		assert.Equal(t, sql.ErrNoRows, err)
+			assert.Equal(t, sql.ErrNoRows, err)
+		})()
 	})))
 	t.Run("DeletedCase", RunWithRecreateDB((func(t *testing.T) {
-		taskId, err := queries.CreateTask(db.GetInstance().GetDB(), TEST_TASK_NAME_1, TEST_TASK_STATE_1)
+		db.RunWithWithTimeout(func(database *sql.DB, ctx context.Context) {
+			taskId, err := queries.CreateTask(database, ctx, TEST_TASK_NAME_1, TEST_TASK_STATE_1)
 
-		assert.Nil(t, err)
-		assert.NotEqual(t, taskId, -1)
+			assert.Nil(t, err)
+			assert.NotEqual(t, taskId, -1)
 
-		err = queries.DeleteTask(db.GetInstance().GetDB(), taskId)
+			err = queries.DeleteTask(database, ctx, taskId)
 
-		assert.Nil(t, err)
+			assert.Nil(t, err)
 
-		err = queries.UpdateTask(db.GetInstance().GetDB(), taskId, TEST_TASK_NAME_2, TEST_TASK_STATE_2)
+			err = queries.UpdateTask(database, ctx, taskId, TEST_TASK_NAME_2, TEST_TASK_STATE_2)
 
-		assert.Equal(t, sql.ErrNoRows, err)
+			assert.Equal(t, sql.ErrNoRows, err)
+		})()
 	})))
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
-		expected := GenerateTask(1)
+		db.RunWithWithTimeout(func(database *sql.DB, ctx context.Context) {
+			expected := GenerateTask(1)
 
-		taskId, err := queries.CreateTask(db.GetInstance().GetDB(), TEST_TASK_NAME_2, TEST_TASK_STATE_2)
+			taskId, err := queries.CreateTask(database, ctx, TEST_TASK_NAME_2, TEST_TASK_STATE_2)
 
-		assert.Nil(t, err)
-		assert.Equal(t, expected.Id, taskId)
+			assert.Nil(t, err)
+			assert.Equal(t, expected.Id, taskId)
 
-		err = queries.UpdateTask(db.GetInstance().GetDB(), expected.Id, expected.Name, expected.State)
+			err = queries.UpdateTask(database, ctx, expected.Id, expected.Name, expected.State)
 
-		assert.Nil(t, err)
+			assert.Nil(t, err)
 
-		actual, err := queries.GetTask(db.GetInstance().GetDB(), expected.Id)
+			actual, err := queries.GetTask(database, ctx, expected.Id)
 
-		AssertEqualTasks(t, expected, actual)
+			AssertEqualTasks(t, expected, actual)
+		})()
 	})))
 	t.Run("DuplicateCase", RunWithRecreateDB((func(t *testing.T) {
-		taskId, err := queries.CreateTask(db.GetInstance().GetDB(), TEST_TASK_NAME_1, TEST_TASK_STATE_1)
+		db.RunWithWithTimeout(func(database *sql.DB, ctx context.Context) {
+			taskId, err := queries.CreateTask(database, ctx, TEST_TASK_NAME_1, TEST_TASK_STATE_1)
 
-		assert.Nil(t, err)
-		assert.NotEqual(t, taskId, -1)
+			assert.Nil(t, err)
+			assert.NotEqual(t, taskId, -1)
 
-		taskId, err = queries.CreateTask(db.GetInstance().GetDB(), TEST_TASK_NAME_2, TEST_TASK_STATE_2)
+			taskId, err = queries.CreateTask(database, ctx, TEST_TASK_NAME_2, TEST_TASK_STATE_2)
 
-		assert.Nil(t, err)
-		assert.NotEqual(t, taskId, -1)
+			assert.Nil(t, err)
+			assert.NotEqual(t, taskId, -1)
 
-		actualError := queries.UpdateTask(db.GetInstance().GetDB(), taskId, TEST_TASK_NAME_1, TEST_TASK_STATE_1)
+			actualError := queries.UpdateTask(database, ctx, taskId, TEST_TASK_NAME_1, TEST_TASK_STATE_1)
 
-		assert.Equal(t, db.ErrorTaskDuplicateKey, actualError)
+			assert.Equal(t, db.ErrorTaskDuplicateKey, actualError)
+		})()
+	})))
+	t.Run("TimeoutErrorExpected", RunWithRecreateDB((func(t *testing.T) {
+		t.Fatalf("not implemented")
+		// TODO: add configurable timeout for db queries
+		// db.RunWithWithTimeout(func(database *sql.DB, ctx context.Context) {
+		//	_, err = tx.ExecContext(ctx, "SELECT pg_sleep(10)") // todo clean
+		// })()
 	})))
 }
 
 func TestDBTaskDelete(t *testing.T) {
 	t.Run("NotFoundCase", RunWithRecreateDB((func(t *testing.T) {
-		err := queries.DeleteTask(db.GetInstance().GetDB(), 1)
+		db.RunWithWithTimeout(func(database *sql.DB, ctx context.Context) {
+			err := queries.DeleteTask(database, ctx, 1)
 
-		assert.Equal(t, sql.ErrNoRows, err)
+			assert.Equal(t, sql.ErrNoRows, err)
+		})()
 	})))
 	t.Run("AlreadyDeletedCase", RunWithRecreateDB((func(t *testing.T) {
-		taskId, err := queries.CreateTask(db.GetInstance().GetDB(), TEST_TASK_NAME_1, TEST_TASK_STATE_1)
+		db.RunWithWithTimeout(func(database *sql.DB, ctx context.Context) {
+			taskId, err := queries.CreateTask(database, ctx, TEST_TASK_NAME_1, TEST_TASK_STATE_1)
 
-		assert.Nil(t, err)
-		assert.NotEqual(t, taskId, -1)
+			assert.Nil(t, err)
+			assert.NotEqual(t, taskId, -1)
 
-		err = queries.DeleteTask(db.GetInstance().GetDB(), taskId)
+			err = queries.DeleteTask(database, ctx, taskId)
 
-		assert.Nil(t, err)
+			assert.Nil(t, err)
 
-		err = queries.DeleteTask(db.GetInstance().GetDB(), taskId)
+			err = queries.DeleteTask(database, ctx, taskId)
 
-		assert.Equal(t, sql.ErrNoRows, err)
+			assert.Equal(t, sql.ErrNoRows, err)
+		})()
 	})))
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
-		var expectedTasks []entities.Task
-		expectedTasks = append(expectedTasks, GenerateTask(1))
-		expectedTasks = append(expectedTasks, GenerateTask(3))
+		db.RunWithWithTimeout(func(database *sql.DB, ctx context.Context) {
+			var expectedTasks []entities.Task
+			expectedTasks = append(expectedTasks, GenerateTask(1))
+			expectedTasks = append(expectedTasks, GenerateTask(3))
 
-		taskIdToDelete := 2
+			taskIdToDelete := 2
 
-		CreateTasksInDB(t, 3, TEST_TASK_NAME_TEMPLATE, entities.TASK_STATE_NEW)
+			CreateTasksInDB(t, database, ctx, 3, TEST_TASK_NAME_TEMPLATE, entities.TASK_STATE_NEW)
 
-		err := queries.DeleteTask(db.GetInstance().GetDB(), taskIdToDelete)
+			err := queries.DeleteTask(database, ctx, taskIdToDelete)
 
-		assert.Nil(t, err)
+			assert.Nil(t, err)
 
-		tasks, err := queries.GetTasks(db.GetInstance().GetDB(), 50, 0)
+			tasks, err := queries.GetTasks(database, ctx, 50, 0)
 
-		assert.Nil(t, err)
-		AssertEqualTaskArrays(t, expectedTasks, tasks)
+			assert.Nil(t, err)
+			AssertEqualTaskArrays(t, expectedTasks, tasks)
 
-		_, err = queries.GetTask(db.GetInstance().GetDB(), taskIdToDelete)
+			_, err = queries.GetTask(database, ctx, taskIdToDelete)
 
-		assert.Equal(t, sql.ErrNoRows, err)
+			assert.Equal(t, sql.ErrNoRows, err)
+		})()
+	})))
+	t.Run("TimeoutErrorExpected", RunWithRecreateDB((func(t *testing.T) {
+		t.Fatalf("not implemented")
+		// TODO: add configurable timeout for db queries
+		// db.RunWithWithTimeout(func(database *sql.DB, ctx context.Context) {
+		//	_, err = tx.ExecContext(ctx, "SELECT pg_sleep(10)") // todo clean
+		// })()
 	})))
 }

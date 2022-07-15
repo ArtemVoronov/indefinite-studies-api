@@ -1,27 +1,29 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
 	"log"
 	"os"
 	"sync"
+	"time"
 
 	_ "github.com/lib/pq"
 )
 
-// TODO: add explicit tx using, and context with 30 second timeout, make timeout and db *sql.D as one struct that is used by queries
-// TODO: then make injection of DB to api functions and integration tests, maybe just a singleton
+// TODO: reorder funcs, types, vars in 'db' namespace
 
 type Singleton interface {
 	GetDB() *sql.DB
+	GetTimeout() time.Duration
 }
 
 type singleton struct {
-	rwmutex          sync.RWMutex
-	db               *sql.DB
-	timeoutInSeconds int // TODO: init contextes with timeouts for db.Tx()
+	rwmutex sync.RWMutex
+	db      *sql.DB
+	timeout time.Duration
 }
 
 var once sync.Once
@@ -31,9 +33,8 @@ func GetInstance() Singleton {
 	once.Do(func() {
 		if instance == nil {
 			instance = new(singleton)
-			sqldb := setup()
-			instance.setDB(sqldb)
-			instance.setTimeoutInSeconds(30)
+			instance.setDB(createDatabase())
+			instance.setTimeout(30 * time.Second) // TODO: make timeout confugrable for tests
 		}
 	})
 	return instance
@@ -45,10 +46,10 @@ func (s *singleton) setDB(sqldb *sql.DB) {
 	s.db = sqldb
 }
 
-func (s *singleton) setTimeoutInSeconds(timeout int) {
+func (s *singleton) setTimeout(timeout time.Duration) {
 	s.rwmutex.Lock()
 	defer s.rwmutex.Unlock()
-	s.timeoutInSeconds = timeout
+	s.timeout = timeout
 }
 
 func (s *singleton) GetDB() *sql.DB {
@@ -57,11 +58,17 @@ func (s *singleton) GetDB() *sql.DB {
 	return s.db
 }
 
+func (s *singleton) GetTimeout() time.Duration {
+	s.rwmutex.RLock()
+	defer s.rwmutex.RUnlock()
+	return s.timeout
+}
+
 var ErrorTaskDuplicateKey = errors.New("pq: duplicate key value violates unique constraint \"tasks_name_state_unique\"")
 var ErrorTagDuplicateKey = errors.New("pq: duplicate key value violates unique constraint \"tags_name_state_unique\"")
 var ErrorUserDuplicateKey = errors.New("pq: duplicate key value violates unique constraint \"users_email_state_unique\"")
 
-func setup() *sql.DB {
+func createDatabase() *sql.DB {
 
 	dbEnvVars := [6]string{"DATABASE_HOST", "DATABASE_PORT", "DATABASE_USER", "DATABASE_PASSWORD", "DATABASE_NAME", "DATABASE_SSL_MODE"}
 	var variables []string
@@ -83,4 +90,16 @@ func setup() *sql.DB {
 	log.Printf("----- Database service setup succeed. Database name: %s -----", variables[4])
 
 	return result
+}
+
+type SqlQueryFunc func(database *sql.DB, ctx context.Context)
+
+func RunWithWithTimeout(f SqlQueryFunc) func() {
+	database := GetInstance().GetDB()
+	timeout := GetInstance().GetTimeout()
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	return func() {
+		defer cancel()
+		f(database, ctx)
+	}
 }

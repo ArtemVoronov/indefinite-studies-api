@@ -1,6 +1,7 @@
 package tasks
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -68,14 +69,16 @@ func GetTasks(c *gin.Context) {
 		offset = 0
 	}
 
-	tasks, err := queries.GetTasks(db.GetInstance().GetDB(), limit, offset)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, "Unable to get tasks")
-		log.Printf("Unable to get to tasks : %s", err)
-		return
-	}
-	result := &TaskListDTO{Data: convertTasks(tasks), Count: len(tasks), Offset: offset, Limit: limit}
-	c.JSON(http.StatusOK, result)
+	db.RunWithWithTimeout(func(database *sql.DB, ctx context.Context) {
+		tasks, err := queries.GetTasks(database, ctx, limit, offset)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, "Unable to get tasks")
+			log.Printf("Unable to get to tasks : %s", err)
+			return
+		}
+		result := &TaskListDTO{Data: convertTasks(tasks), Count: len(tasks), Offset: offset, Limit: limit}
+		c.JSON(http.StatusOK, result)
+	})()
 }
 
 func GetTask(c *gin.Context) {
@@ -93,17 +96,19 @@ func GetTask(c *gin.Context) {
 		return
 	}
 
-	task, err := queries.GetTask(db.GetInstance().GetDB(), taskId)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
-		} else {
-			c.JSON(http.StatusInternalServerError, "Unable to get task")
-			log.Printf("Unable to get to task : %s", err)
+	db.RunWithWithTimeout(func(database *sql.DB, ctx context.Context) {
+		task, err := queries.GetTask(database, ctx, taskId)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
+			} else {
+				c.JSON(http.StatusInternalServerError, "Unable to get task")
+				log.Printf("Unable to get to task : %s", err)
+			}
+			return
 		}
-		return
-	}
-	c.JSON(http.StatusOK, task)
+		c.JSON(http.StatusOK, task)
+	})()
 }
 
 func CreateTask(c *gin.Context) {
@@ -126,18 +131,20 @@ func CreateTask(c *gin.Context) {
 		return
 	}
 
-	result, err := queries.CreateTask(db.GetInstance().GetDB(), task.Name, task.State)
-	if err != nil || result == -1 {
-		if err.Error() == db.ErrorTaskDuplicateKey.Error() {
-			c.JSON(http.StatusBadRequest, api.DUPLICATE_FOUND)
+	db.RunWithWithTimeout(func(database *sql.DB, ctx context.Context) {
+		result, err := queries.CreateTask(database, ctx, task.Name, task.State)
+		if err != nil || result == -1 {
+			if err.Error() == db.ErrorTaskDuplicateKey.Error() {
+				c.JSON(http.StatusBadRequest, api.DUPLICATE_FOUND)
+				return
+			}
+			c.JSON(http.StatusInternalServerError, "Unable to create task")
+			log.Printf("Unable to create task : %s", err)
 			return
-		}
-		c.JSON(http.StatusInternalServerError, "Unable to create task")
-		log.Printf("Unable to create task : %s", err)
-		return
 
-	}
-	c.JSON(http.StatusCreated, result)
+		}
+		c.JSON(http.StatusCreated, result)
+	})()
 }
 
 func UpdateTask(c *gin.Context) {
@@ -174,22 +181,24 @@ func UpdateTask(c *gin.Context) {
 		return
 	}
 
-	err := queries.UpdateTask(db.GetInstance().GetDB(), taskId, task.Name, task.State)
+	db.RunWithWithTimeout(func(database *sql.DB, ctx context.Context) {
+		err := queries.UpdateTask(database, ctx, taskId, task.Name, task.State)
 
-	if err != nil {
-		if err == sql.ErrNoRows {
-			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
+				return
+			}
+			if err.Error() == db.ErrorTaskDuplicateKey.Error() {
+				c.JSON(http.StatusBadRequest, api.DUPLICATE_FOUND)
+				return
+			}
+			c.JSON(http.StatusInternalServerError, "Unable to update task")
+			log.Printf("Unable to update task : %s", err)
 			return
 		}
-		if err.Error() == db.ErrorTaskDuplicateKey.Error() {
-			c.JSON(http.StatusBadRequest, api.DUPLICATE_FOUND)
-			return
-		}
-		c.JSON(http.StatusInternalServerError, "Unable to update task")
-		log.Printf("Unable to update task : %s", err)
-		return
-	}
-	c.JSON(http.StatusOK, api.DONE)
+		c.JSON(http.StatusOK, api.DONE)
+	})()
 }
 
 func DeleteTask(c *gin.Context) {
@@ -207,16 +216,18 @@ func DeleteTask(c *gin.Context) {
 		return
 	}
 
-	err := queries.DeleteTask(db.GetInstance().GetDB(), id)
+	db.RunWithWithTimeout(func(database *sql.DB, ctx context.Context) {
+		err := queries.DeleteTask(database, ctx, id)
 
-	if err != nil {
-		if err == sql.ErrNoRows {
-			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
+				return
+			}
+			c.JSON(http.StatusInternalServerError, "Unable to delete task")
+			log.Printf("Unable to delete task: %s", err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, "Unable to delete task")
-		log.Printf("Unable to delete task: %s", err)
-		return
-	}
-	c.JSON(http.StatusOK, api.DONE)
+		c.JSON(http.StatusOK, api.DONE)
+	})()
 }
