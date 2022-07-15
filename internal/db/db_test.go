@@ -1,6 +1,7 @@
 package db_test
 
 // TODO: finish tests for initiation of db service
+// TODO: add mocks for *sql.DB
 
 // import (
 // 	"testing"

@@ -1,14 +1,15 @@
 package queries
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
-	DBService "github.com/ArtemVoronov/indefinite-studies-api/internal/db"
+	"github.com/ArtemVoronov/indefinite-studies-api/internal/db"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/entities"
 )
 
-func GetTasks(db *sql.DB, limit int, offset int) ([]entities.Task, error) {
+func GetTasks(database *sql.DB, ctx context.Context, limit int, offset int) ([]entities.Task, error) {
 	var tasks []entities.Task
 	var (
 		id    int
@@ -16,9 +17,15 @@ func GetTasks(db *sql.DB, limit int, offset int) ([]entities.Task, error) {
 		state string
 	)
 
-	rows, err := db.Query("SELECT id, name, state FROM tasks WHERE state != $3 LIMIT $1 OFFSET $2 ", limit, offset, entities.TASK_STATE_DELETED)
+	tx, err := database.BeginTx(ctx, nil)
 	if err != nil {
-		return tasks, fmt.Errorf("error at loading tasks from db, case after db.Query: %s", err)
+		return tasks, fmt.Errorf("error at loading tasks from db, case after begin tx: %s", err)
+	}
+	defer tx.Rollback()
+
+	rows, err := tx.QueryContext(ctx, "SELECT id, name, state FROM tasks WHERE state != $3 LIMIT $1 OFFSET $2 ", limit, offset, entities.TASK_STATE_DELETED)
+	if err != nil {
+		return tasks, fmt.Errorf("error at loading tasks from db, case after Query: %s", err)
 	}
 	defer rows.Close()
 
@@ -34,46 +41,80 @@ func GetTasks(db *sql.DB, limit int, offset int) ([]entities.Task, error) {
 		return tasks, fmt.Errorf("error at loading tasks from db, case after iterating: %s", err)
 	}
 
+	err = tx.Commit()
+	if err != nil {
+		return tasks, fmt.Errorf("error at loading tasks from db, case after commit tx: %s", err)
+	}
+
 	return tasks, nil
 }
 
-func GetTask(db *sql.DB, id int) (entities.Task, error) {
+func GetTask(database *sql.DB, ctx context.Context, id int) (entities.Task, error) {
 	var task entities.Task
 
-	err := db.QueryRow("SELECT id, name, state FROM tasks WHERE id = $1 and state != $2 ", id, entities.TASK_STATE_DELETED).Scan(&task.Id, &task.Name, &task.State)
+	tx, err := database.BeginTx(ctx, nil)
+	if err != nil {
+		return task, fmt.Errorf("error at loading task by id '%d' from db, case after begin tx: %s", id, err)
+	}
+	defer tx.Rollback()
+
+	err = tx.QueryRowContext(ctx, "SELECT id, name, state FROM tasks WHERE id = $1 and state != $2 ", id, entities.TASK_STATE_DELETED).Scan(&task.Id, &task.Name, &task.State)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return task, err
 		}
-		return task, fmt.Errorf("error at loading task by id '%d' from db, case after db.QueryRow.Scan: %s", id, err)
+		return task, fmt.Errorf("error at loading task by id '%d' from db, case after QueryRow.Scan: %s", id, err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return task, fmt.Errorf("error at loading task by id '%d' from db, case after commit tx: %s", id, err)
 	}
 
 	return task, nil
 }
 
-func CreateTask(db *sql.DB, name string, state string) (int, error) {
+func CreateTask(database *sql.DB, ctx context.Context, name string, state string) (int, error) {
 	lastInsertId := -1
 
-	err := db.QueryRow("INSERT INTO tasks(name, state) VALUES($1, $2) RETURNING id", name, state).Scan(&lastInsertId) // scan will release the connection
+	tx, err := database.BeginTx(ctx, nil)
 	if err != nil {
-		if err.Error() == DBService.ErrorTaskDuplicateKey.Error() {
-			return -1, DBService.ErrorTaskDuplicateKey
+		return lastInsertId, fmt.Errorf("error at inserting task (Name: '%s', State: '%s') into db, case after begin tx: %s", name, state, err)
+	}
+	defer tx.Rollback()
+
+	err = tx.QueryRowContext(ctx, "INSERT INTO tasks(name, state) VALUES($1, $2) RETURNING id", name, state).Scan(&lastInsertId) // scan will release the connection
+	if err != nil {
+		if err.Error() == db.ErrorTaskDuplicateKey.Error() {
+			return -1, db.ErrorTaskDuplicateKey
 		}
-		return -1, fmt.Errorf("error at inserting task (Name: '%s', State: '%s') into db, case after db.QueryRow.Scan: %s", name, state, err)
+		return -1, fmt.Errorf("error at inserting task (Name: '%s', State: '%s') into db, case after QueryRow.Scan: %s", name, state, err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return lastInsertId, fmt.Errorf("error at inserting task (Name: '%s', State: '%s') into db, case after commit tx: %s", name, state, err)
 	}
 
 	return lastInsertId, nil
 }
 
-func UpdateTask(db *sql.DB, id int, name string, state string) error {
-	stmt, err := db.Prepare("UPDATE tasks SET name = $2, state = $3 WHERE id = $1 and state != $4")
+func UpdateTask(database *sql.DB, ctx context.Context, id int, name string, state string) error {
+	tx, err := database.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("error at updating task (Id: %d, Name: '%s', State: '%s'), case after begin tx: %s", id, name, state, err)
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.PrepareContext(ctx, "UPDATE tasks SET name = $2, state = $3 WHERE id = $1 and state != $4")
 	if err != nil {
 		return fmt.Errorf("error at updating task, case after preparing statement: %s", err)
 	}
-	res, err := stmt.Exec(id, name, state, entities.TASK_STATE_DELETED)
+
+	res, err := stmt.ExecContext(ctx, id, name, state, entities.TASK_STATE_DELETED)
 	if err != nil {
-		if err.Error() == DBService.ErrorTaskDuplicateKey.Error() {
-			return DBService.ErrorTaskDuplicateKey
+		if err.Error() == db.ErrorTaskDuplicateKey.Error() {
+			return db.ErrorTaskDuplicateKey
 		}
 		return fmt.Errorf("error at updating task (Id: %d, Name: '%s', State: '%s'), case after executing statement: %s", id, name, state, err)
 	}
@@ -82,20 +123,32 @@ func UpdateTask(db *sql.DB, id int, name string, state string) error {
 	if err != nil {
 		return fmt.Errorf("error at updating task (Id: %d, Name: '%s', State: '%s'), case after counting affected rows: %s", id, name, state, err)
 	}
+
 	if affectedRowsCount == 0 {
 		return sql.ErrNoRows
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("error at updating task (Id: %d, Name: '%s', State: '%s'), case after commit tx: %s", id, name, state, err)
 	}
 
 	return nil
 }
 
-func DeleteTask(db *sql.DB, id int) error {
+func DeleteTask(database *sql.DB, ctx context.Context, id int) error {
+	tx, err := database.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("error at deleting task by id '%d', case after begin tx: %s", id, err)
+	}
+	defer tx.Rollback()
+
 	// just for keeping the history we will add suffix to name and change state to 'DELETED', because of key constraint (name, state)
-	stmt, err := db.Prepare("UPDATE tasks SET name = name||'_deleted_'||$1, state = $2 WHERE id = $1 and state != $2")
+	stmt, err := tx.PrepareContext(ctx, "UPDATE tasks SET name = name||'_deleted_'||$1, state = $2 WHERE id = $1 and state != $2")
 	if err != nil {
 		return fmt.Errorf("error at deleting task, case after preparing statement: %s", err)
 	}
-	res, err := stmt.Exec(id, entities.TASK_STATE_DELETED)
+	res, err := stmt.ExecContext(ctx, id, entities.TASK_STATE_DELETED)
 	if err != nil {
 		return fmt.Errorf("error at deleting task by id '%d', case after executing statement: %s", id, err)
 	}
@@ -106,6 +159,10 @@ func DeleteTask(db *sql.DB, id int) error {
 	}
 	if affectedRowsCount == 0 {
 		return sql.ErrNoRows
+	}
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("error at deleting task by id '%d', case after commit tx: %s", id, err)
 	}
 	return nil
 }
