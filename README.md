@@ -11,9 +11,14 @@ DATABASE_USER=indefinite_studies_api_user
 DATABASE_PASSWORD=password
 DATABASE_NAME=indefinite_studies_api_db
 DATABASE_SSL_MODE=disable
+DATABASE_QUERY_DEFAULT_TIMEOUT_IN_SECONDS=30
 
 #required for liquibase
 DATABASE_URL=jdbc:postgresql://postgres:5432/indefinite_studies_api_db
+
+#basic auth
+AUTH_PASSWORD=password
+AUTH_USERNAME=user
 ```
 2. Check `docker-compose.yml` is appropriate to config that you are going to use (e.g.`docker-compose config`)
 3. Build images: `docker-compose  build`

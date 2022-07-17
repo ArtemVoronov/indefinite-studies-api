@@ -4,6 +4,7 @@
 package integration
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"strconv"
@@ -72,175 +73,342 @@ func AssertEqualUserArrays(t *testing.T, expected []entities.User, actual []enti
 	}
 }
 
-func CreateUserInDB(t *testing.T, login string, email string, password string, role string, state string) int {
-	userId, err := queries.CreateUser(db.GetInstance().GetDB(), login, email, password, role, state)
+func CreateUserInDB(t *testing.T, tx *sql.Tx, ctx context.Context, login string, email string, password string, role string, state string) (int, error) {
+	userId, err := queries.CreateUser(tx, ctx, login, email, password, role, state)
 	assert.Nil(t, err)
 	assert.NotEqual(t, userId, -1)
-	return userId
+	return userId, err
 }
 
-func CreateUsersInDB(t *testing.T, count int, loginTemplate string, emailTemplate string, passwordTemplate string, role string, state string) {
+func CreateUsersInDB(t *testing.T, tx *sql.Tx, ctx context.Context, count int, loginTemplate string, emailTemplate string, passwordTemplate string, role string, state string) error {
+	var lastErr error
 	for i := 1; i <= count; i++ {
-		CreateUserInDB(t, GenerateUserLogin(loginTemplate, i), GenerateUserEmail(emailTemplate, i), GenerateUserPassword(passwordTemplate, i), role, state)
+		_, err := CreateUserInDB(t, tx, ctx, GenerateUserLogin(loginTemplate, i), GenerateUserEmail(emailTemplate, i), GenerateUserPassword(passwordTemplate, i), role, state)
+		if err != nil {
+			lastErr = err
+		}
 	}
+	return lastErr
 }
 
 func TestDBUserGet(t *testing.T) {
 	t.Run("NotFoundCase", RunWithRecreateDB((func(t *testing.T) {
-		_, actualError := queries.GetUser(db.GetInstance().GetDB(), 1)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			_, err := queries.GetUser(tx, ctx, 1)
 
-		assert.Equal(t, sql.ErrNoRows, actualError)
+			assert.Equal(t, sql.ErrNoRows, err)
+			return err
+		})()
 	})))
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		expected := GenerateUser(1)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			userId, err := queries.CreateUser(tx, ctx, expected.Login, expected.Email, expected.Password, expected.Role, expected.State)
 
-		userId, err := queries.CreateUser(db.GetInstance().GetDB(), expected.Login, expected.Email, expected.Password, expected.Role, expected.State)
+			assert.Nil(t, err)
+			assert.Equal(t, expected.Id, userId)
 
-		assert.Nil(t, err)
-		assert.Equal(t, userId, expected.Id)
+			return err
+		})()
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			actual, err := queries.GetUser(tx, ctx, expected.Id)
 
-		actual, err := queries.GetUser(db.GetInstance().GetDB(), userId)
+			AssertEqualUsers(t, expected, actual)
+			return err
+		})()
+	})))
+	t.Run("TimeoutError", RunWithRecreateDB((func(t *testing.T) {
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			expectedError := fmt.Errorf("error at loading user by id '%d' from db, case after QueryRow.Scan: %s", 1, "context deadline exceeded")
+			_, err := tx.ExecContext(ctx, "SELECT pg_sleep(10)")
+			_, err = queries.GetUser(tx, ctx, 1)
 
-		AssertEqualUsers(t, expected, actual)
+			assert.Equal(t, expectedError, err)
+			return err
+		})()
+	})))
+	t.Run("ContextCancelled", RunWithRecreateDB((func(t *testing.T) {
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			expectedError := fmt.Errorf("error at loading user by id '%d' from db, case after QueryRow.Scan: %s", 1, "context canceled")
+			cancel()
+			_, err := queries.GetUser(tx, ctx, 1)
+
+			assert.Equal(t, expectedError, err)
+			return err
+		})()
 	})))
 }
 
 func TestDBUserCreate(t *testing.T) {
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
-		userId, err := queries.CreateUser(db.GetInstance().GetDB(), TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			userId, err := queries.CreateUser(tx, ctx, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 
-		assert.Nil(t, err)
-		assert.Equal(t, userId, 1)
+			assert.Nil(t, err)
+			assert.Equal(t, userId, 1)
+			return err
+		})()
 	})))
 	t.Run("DuplicateCase", RunWithRecreateDB((func(t *testing.T) {
-		userId, err := queries.CreateUser(db.GetInstance().GetDB(), TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			userId, err := queries.CreateUser(tx, ctx, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 
-		assert.Nil(t, err)
-		assert.NotEqual(t, userId, -1)
+			assert.Nil(t, err)
+			assert.NotEqual(t, userId, -1)
+			return err
+		})()
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			_, err := queries.CreateUser(tx, ctx, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 
-		_, err = queries.CreateUser(db.GetInstance().GetDB(), TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
+			assert.Equal(t, db.ErrorUserDuplicateKey, err)
+			return err
+		})()
+	})))
+	t.Run("TimeoutError", RunWithRecreateDB((func(t *testing.T) {
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			expectedError := fmt.Errorf("error at inserting user (Login: '%s', Email: '%s') into db, case after QueryRow.Scan: %s", TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, "context deadline exceeded")
+			_, err := tx.ExecContext(ctx, "SELECT pg_sleep(10)")
+			_, err = queries.CreateUser(tx, ctx, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 
-		assert.Equal(t, db.ErrorUserDuplicateKey, err)
+			assert.Equal(t, expectedError, err)
+			return err
+		})()
+	})))
+	t.Run("ContextCancelled", RunWithRecreateDB((func(t *testing.T) {
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			expectedError := fmt.Errorf("error at inserting user (Login: '%s', Email: '%s') into db, case after QueryRow.Scan: %s", TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, "context canceled")
+			cancel()
+			_, err := queries.CreateUser(tx, ctx, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
+
+			assert.Equal(t, expectedError, err)
+			return err
+		})()
 	})))
 }
 
 func TestDBUserGetAll(t *testing.T) {
 	t.Run("ExpectedEmpty", RunWithRecreateDB((func(t *testing.T) {
-		users, err := queries.GetUsers(db.GetInstance().GetDB(), 50, 0)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			users, err := queries.GetUsers(tx, ctx, 50, 0)
 
-		assert.Nil(t, err)
-		assert.Equal(t, 0, len(users))
+			assert.Nil(t, err)
+			assert.Equal(t, 0, len(users))
+			return err
+		})()
 	})))
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		var expectedUsers []entities.User
 		for i := 1; i <= 10; i++ {
 			expectedUsers = append(expectedUsers, GenerateUser(i))
 		}
-		CreateUsersInDB(t, 10, TEST_USER_LOGIN_TEMPLATE, TEST_USER_EMAIL_TEMPLATE, TEST_USER_PASSORD_TEMPLATE, TEST_USER_ROLE_1, TEST_USER_STATE_1)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			err := CreateUsersInDB(t, tx, ctx, 10, TEST_USER_LOGIN_TEMPLATE, TEST_USER_EMAIL_TEMPLATE, TEST_USER_PASSORD_TEMPLATE, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 
-		actualUsers, err := queries.GetUsers(db.GetInstance().GetDB(), 50, 0)
+			return err
+		})()
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			actualUsers, err := queries.GetUsers(tx, ctx, 50, 0)
 
-		assert.Nil(t, err)
-		AssertEqualUserArrays(t, expectedUsers, actualUsers)
+			assert.Nil(t, err)
+			AssertEqualUserArrays(t, expectedUsers, actualUsers)
+			return err
+		})()
 	})))
 	t.Run("LimitParameterCase", RunWithRecreateDB((func(t *testing.T) {
 		var expectedUsers []entities.User
 		for i := 1; i <= 5; i++ {
 			expectedUsers = append(expectedUsers, GenerateUser(i))
 		}
-		CreateUsersInDB(t, 10, TEST_USER_LOGIN_TEMPLATE, TEST_USER_EMAIL_TEMPLATE, TEST_USER_PASSORD_TEMPLATE, TEST_USER_ROLE_1, TEST_USER_STATE_1)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			err := CreateUsersInDB(t, tx, ctx, 10, TEST_USER_LOGIN_TEMPLATE, TEST_USER_EMAIL_TEMPLATE, TEST_USER_PASSORD_TEMPLATE, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 
-		actualUsers, err := queries.GetUsers(db.GetInstance().GetDB(), 5, 0)
+			return err
+		})()
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			actualUsers, err := queries.GetUsers(tx, ctx, 5, 0)
 
-		assert.Nil(t, err)
-		AssertEqualUserArrays(t, expectedUsers, actualUsers)
+			assert.Nil(t, err)
+			AssertEqualUserArrays(t, expectedUsers, actualUsers)
+			return err
+		})()
 	})))
 	t.Run("OffsetParameterCase", RunWithRecreateDB((func(t *testing.T) {
 		var expectedUsers []entities.User
 		for i := 6; i <= 10; i++ {
 			expectedUsers = append(expectedUsers, GenerateUser(i))
 		}
-		CreateUsersInDB(t, 10, TEST_USER_LOGIN_TEMPLATE, TEST_USER_EMAIL_TEMPLATE, TEST_USER_PASSORD_TEMPLATE, TEST_USER_ROLE_1, TEST_USER_STATE_1)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			err := CreateUsersInDB(t, tx, ctx, 10, TEST_USER_LOGIN_TEMPLATE, TEST_USER_EMAIL_TEMPLATE, TEST_USER_PASSORD_TEMPLATE, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 
-		actualUsers, err := queries.GetUsers(db.GetInstance().GetDB(), 50, 5)
+			return err
+		})()
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			actualUsers, err := queries.GetUsers(tx, ctx, 50, 5)
 
-		assert.Nil(t, err)
-		AssertEqualUserArrays(t, expectedUsers, actualUsers)
+			assert.Nil(t, err)
+			AssertEqualUserArrays(t, expectedUsers, actualUsers)
+			return err
+		})()
+	})))
+	t.Run("TimeoutError", RunWithRecreateDB((func(t *testing.T) {
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			expectedError := fmt.Errorf("error at loading users from db, case after Query: %s", "context deadline exceeded")
+			_, err := tx.ExecContext(ctx, "SELECT pg_sleep(10)")
+			_, err = queries.GetUsers(tx, ctx, 50, 0)
+
+			assert.Equal(t, expectedError, err)
+			return err
+		})()
+	})))
+	t.Run("ContextCancelled", RunWithRecreateDB((func(t *testing.T) {
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			expectedError := fmt.Errorf("error at loading users from db, case after Query: %s", "context canceled")
+			cancel()
+			_, err := queries.GetUsers(tx, ctx, 50, 0)
+
+			assert.Equal(t, expectedError, err)
+			return err
+		})()
 	})))
 }
 
 func TestDBUserUpdate(t *testing.T) {
 	t.Run("NotFoundCase", RunWithRecreateDB((func(t *testing.T) {
-		err := queries.UpdateUser(db.GetInstance().GetDB(), 1, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			err := queries.UpdateUser(tx, ctx, 1, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 
-		assert.Equal(t, sql.ErrNoRows, err)
+			assert.Equal(t, sql.ErrNoRows, err)
+			return err
+		})()
 	})))
 	t.Run("DeletedCase", RunWithRecreateDB((func(t *testing.T) {
-		userId, err := queries.CreateUser(db.GetInstance().GetDB(), TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
+		expectedUserId := 1
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			userId, err := queries.CreateUser(tx, ctx, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 
-		assert.Nil(t, err)
-		assert.NotEqual(t, userId, -1)
+			assert.Nil(t, err)
+			assert.Equal(t, expectedUserId, userId)
 
-		err = queries.DeleteUser(db.GetInstance().GetDB(), userId)
+			return err
+		})()
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			err := queries.DeleteUser(tx, ctx, expectedUserId)
 
-		assert.Nil(t, err)
+			assert.Nil(t, err)
 
-		err = queries.UpdateUser(db.GetInstance().GetDB(), userId, TEST_USER_LOGIN_2, TEST_USER_EMAIL_2, TEST_USER_PASSWORD_2, TEST_USER_ROLE_2, TEST_USER_STATE_2)
+			return err
+		})()
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			err := queries.UpdateUser(tx, ctx, expectedUserId, TEST_USER_LOGIN_2, TEST_USER_EMAIL_2, TEST_USER_PASSWORD_2, TEST_USER_ROLE_2, TEST_USER_STATE_2)
 
-		assert.Equal(t, sql.ErrNoRows, err)
+			assert.Equal(t, sql.ErrNoRows, err)
+			return err
+		})()
 	})))
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		expected := GenerateUser(1)
 
-		userId, err := queries.CreateUser(db.GetInstance().GetDB(), TEST_USER_LOGIN_2, TEST_USER_EMAIL_2, TEST_USER_PASSWORD_2, TEST_USER_ROLE_2, TEST_USER_STATE_2)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			userId, err := queries.CreateUser(tx, ctx, TEST_USER_LOGIN_2, TEST_USER_EMAIL_2, TEST_USER_PASSWORD_2, TEST_USER_ROLE_2, TEST_USER_STATE_2)
 
-		assert.Nil(t, err)
-		assert.Equal(t, expected.Id, userId)
+			assert.Nil(t, err)
+			assert.Equal(t, expected.Id, userId)
 
-		err = queries.UpdateUser(db.GetInstance().GetDB(), expected.Id, expected.Login, expected.Email, expected.Password, expected.Role, expected.State)
+			return err
+		})()
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			err := queries.UpdateUser(tx, ctx, expected.Id, expected.Login, expected.Email, expected.Password, expected.Role, expected.State)
 
-		assert.Nil(t, err)
+			assert.Nil(t, err)
 
-		actual, err := queries.GetUser(db.GetInstance().GetDB(), expected.Id)
+			return err
+		})()
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			actual, err := queries.GetUser(tx, ctx, expected.Id)
 
-		AssertEqualUsers(t, expected, actual)
+			AssertEqualUsers(t, expected, actual)
+			return err
+		})()
 	})))
 	t.Run("DuplicateCase", RunWithRecreateDB((func(t *testing.T) {
-		userId, err := queries.CreateUser(db.GetInstance().GetDB(), TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
+		expectedUserId1 := 1
+		expectedUserId2 := 2
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			userId, err := queries.CreateUser(tx, ctx, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 
-		assert.Nil(t, err)
-		assert.NotEqual(t, userId, -1)
+			assert.Nil(t, err)
+			assert.Equal(t, expectedUserId1, userId)
+			return err
+		})()
 
-		userId, err = queries.CreateUser(db.GetInstance().GetDB(), TEST_USER_LOGIN_2, TEST_USER_EMAIL_2, TEST_USER_PASSWORD_2, TEST_USER_ROLE_2, TEST_USER_STATE_2)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			userId, err := queries.CreateUser(tx, ctx, TEST_USER_LOGIN_2, TEST_USER_EMAIL_2, TEST_USER_PASSWORD_2, TEST_USER_ROLE_2, TEST_USER_STATE_2)
 
-		assert.Nil(t, err)
-		assert.NotEqual(t, userId, -1)
+			assert.Nil(t, err)
+			assert.Equal(t, expectedUserId2, userId)
+			return err
+		})()
 
-		actualError := queries.UpdateUser(db.GetInstance().GetDB(), userId, TEST_USER_LOGIN_2, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_2, TEST_USER_ROLE_2, TEST_USER_STATE_1)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			err := queries.UpdateUser(tx, ctx, expectedUserId2, TEST_USER_LOGIN_2, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_2, TEST_USER_ROLE_2, TEST_USER_STATE_1)
 
-		assert.Equal(t, db.ErrorUserDuplicateKey, actualError)
+			assert.Equal(t, db.ErrorUserDuplicateKey, err)
+			return err
+		})()
+	})))
+	t.Run("TimeoutError", RunWithRecreateDB((func(t *testing.T) {
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			expectedError := fmt.Errorf("error at updating user, case after preparing statement: %s", "context deadline exceeded")
+			_, err := tx.ExecContext(ctx, "SELECT pg_sleep(10)")
+			err = queries.UpdateUser(tx, ctx, 1, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
+
+			assert.Equal(t, expectedError, err)
+			return err
+		})()
+	})))
+	t.Run("ContextCancelled", RunWithRecreateDB((func(t *testing.T) {
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			expectedError := fmt.Errorf("error at updating user, case after preparing statement: %s", "context canceled")
+			cancel()
+			err := queries.UpdateUser(tx, ctx, 1, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
+			assert.Equal(t, expectedError, err)
+			return err
+		})()
 	})))
 }
 
 func TestDBUserDelete(t *testing.T) {
 	t.Run("NotFoundCase", RunWithRecreateDB((func(t *testing.T) {
-		err := queries.DeleteUser(db.GetInstance().GetDB(), 1)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			err := queries.DeleteUser(tx, ctx, 1)
 
-		assert.Equal(t, sql.ErrNoRows, err)
+			assert.Equal(t, sql.ErrNoRows, err)
+			return err
+		})()
 	})))
 	t.Run("AlreadyDeletedCase", RunWithRecreateDB((func(t *testing.T) {
-		userId, err := queries.CreateUser(db.GetInstance().GetDB(), TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
+		expectedUserId := 1
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			userId, err := queries.CreateUser(tx, ctx, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 
-		assert.Nil(t, err)
-		assert.NotEqual(t, userId, -1)
+			assert.Nil(t, err)
+			assert.Equal(t, expectedUserId, userId)
+			return err
+		})()
 
-		err = queries.DeleteUser(db.GetInstance().GetDB(), userId)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			err := queries.DeleteUser(tx, ctx, expectedUserId)
 
-		assert.Nil(t, err)
+			assert.Nil(t, err)
+			return err
+		})()
 
-		err = queries.DeleteUser(db.GetInstance().GetDB(), userId)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			err := queries.DeleteUser(tx, ctx, expectedUserId)
 
-		assert.Equal(t, sql.ErrNoRows, err)
+			assert.Equal(t, sql.ErrNoRows, err)
+			return err
+		})()
 	})))
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		var expectedUsers []entities.User
@@ -249,19 +417,50 @@ func TestDBUserDelete(t *testing.T) {
 
 		userIdToDelete := 2
 
-		CreateUsersInDB(t, 3, TEST_USER_LOGIN_TEMPLATE, TEST_USER_EMAIL_TEMPLATE, TEST_USER_PASSORD_TEMPLATE, TEST_USER_ROLE_1, TEST_USER_STATE_1)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			err := CreateUsersInDB(t, tx, ctx, 3, TEST_USER_LOGIN_TEMPLATE, TEST_USER_EMAIL_TEMPLATE, TEST_USER_PASSORD_TEMPLATE, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 
-		err := queries.DeleteUser(db.GetInstance().GetDB(), userIdToDelete)
+			return err
+		})()
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			err := queries.DeleteUser(tx, ctx, userIdToDelete)
 
-		assert.Nil(t, err)
+			assert.Nil(t, err)
+			return err
+		})()
 
-		users, err := queries.GetUsers(db.GetInstance().GetDB(), 50, 0)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			users, err := queries.GetUsers(tx, ctx, 50, 0)
 
-		assert.Nil(t, err)
-		AssertEqualUserArrays(t, expectedUsers, users)
+			assert.Nil(t, err)
+			AssertEqualUserArrays(t, expectedUsers, users)
+			return err
+		})()
 
-		_, err = queries.GetUser(db.GetInstance().GetDB(), userIdToDelete)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			_, err := queries.GetUser(tx, ctx, userIdToDelete)
 
-		assert.Equal(t, sql.ErrNoRows, err)
+			assert.Equal(t, sql.ErrNoRows, err)
+			return err
+		})()
+	})))
+	t.Run("TimeoutError", RunWithRecreateDB((func(t *testing.T) {
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			expectedError := fmt.Errorf("error at deleting user, case after preparing statement: %s", "context deadline exceeded")
+			_, err := tx.ExecContext(ctx, "SELECT pg_sleep(10)")
+			err = queries.DeleteUser(tx, ctx, 1)
+
+			assert.Equal(t, expectedError, err)
+			return err
+		})()
+	})))
+	t.Run("ContextCancelled", RunWithRecreateDB((func(t *testing.T) {
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			expectedError := fmt.Errorf("error at deleting user, case after preparing statement: %s", "context canceled")
+			cancel()
+			err := queries.DeleteUser(tx, ctx, 1)
+			assert.Equal(t, expectedError, err)
+			return err
+		})()
 	})))
 }

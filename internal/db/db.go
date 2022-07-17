@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -34,7 +35,7 @@ func GetInstance() Singleton {
 		if instance == nil {
 			instance = new(singleton)
 			instance.setDB(createDatabase())
-			instance.setTimeout(30 * time.Second) // TODO: make timeout confugrable for tests
+			instance.setTimeout(getDefaultQueryTimeout())
 		}
 	})
 	return instance
@@ -69,7 +70,6 @@ var ErrorTagDuplicateKey = errors.New("pq: duplicate key value violates unique c
 var ErrorUserDuplicateKey = errors.New("pq: duplicate key value violates unique constraint \"users_email_state_unique\"")
 
 func createDatabase() *sql.DB {
-
 	dbEnvVars := [6]string{"DATABASE_HOST", "DATABASE_PORT", "DATABASE_USER", "DATABASE_PASSWORD", "DATABASE_NAME", "DATABASE_SSL_MODE"}
 	var variables []string
 	for _, element := range dbEnvVars {
@@ -92,14 +92,67 @@ func createDatabase() *sql.DB {
 	return result
 }
 
-type SqlQueryFunc func(database *sql.DB, ctx context.Context)
+func getDefaultQueryTimeout() time.Duration {
+	valueStr, variableExists := os.LookupEnv("DATABASE_QUERY_DEFAULT_TIMEOUT_IN_SECONDS")
+	if !variableExists {
+		return 30 * time.Second
+	}
 
-func RunWithWithTimeout(f SqlQueryFunc) func() {
+	valueInt, err := strconv.Atoi(valueStr)
+
+	if err != nil {
+		log.Printf("Unable to read 'DATABASE_QUERY_DEFAULT_TIMEOUT_IN_SECONDS' from config, using default value for 30 seconds")
+		return 30 * time.Second
+	}
+
+	return time.Duration(valueInt) * time.Second
+}
+
+type SqlQueryFunc func(transaction *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error)
+type SqlQueryFuncVoid func(transaction *sql.Tx, ctx context.Context, cancel context.CancelFunc) error
+
+func Tx(f SqlQueryFunc) func() (any, error) {
 	database := GetInstance().GetDB()
 	timeout := GetInstance().GetTimeout()
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	return func() {
+	return func() (any, error) {
 		defer cancel()
-		f(database, ctx)
+		tx, err := database.BeginTx(ctx, nil)
+		if err != nil {
+			return -1, fmt.Errorf("error at creating tx: %s", err)
+		}
+		defer tx.Rollback()
+		result, err := f(tx, ctx, cancel)
+		if err != nil {
+			return result, err
+		}
+		err = tx.Commit()
+		if err != nil {
+			return -1, fmt.Errorf("error at commiting tx: %s", err)
+		}
+		return result, err
+	}
+}
+
+func TxVoid(f SqlQueryFuncVoid) func() error {
+	database := GetInstance().GetDB()
+	timeout := GetInstance().GetTimeout()
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	return func() error {
+		defer cancel()
+		tx, err := database.BeginTx(ctx, nil)
+		if err != nil {
+			return fmt.Errorf("error at creating tx: %s", err)
+		}
+		defer tx.Rollback()
+		err = f(tx, ctx, cancel)
+		if err != nil {
+			return err
+		}
+		err = tx.Commit()
+		if err != nil {
+			return fmt.Errorf("error at commiting tx: %s", err)
+		}
+		return err
 	}
 }
