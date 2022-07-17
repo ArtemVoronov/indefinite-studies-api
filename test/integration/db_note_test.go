@@ -4,6 +4,7 @@
 package integration
 
 import (
+	"context"
 	"database/sql"
 	"strconv"
 	"testing"
@@ -84,8 +85,13 @@ func TestDBNoteGet(t *testing.T) {
 	})))
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		userId := CreateUserInDB(t, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
-		tagId := CreateTagInDB(t, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
+		result, err := db.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
+			tagId, err := CreateTagInDB(t, tx, ctx, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+			return tagId, err
+		})()
+		tagId, ok := result.(int)
+		assert.True(t, ok)
 		expected := GenerateNote(1, userId, tagId)
 
 		noteId, err := queries.CreateNote(db.GetInstance().GetDB(), expected.Text, expected.Topic, expected.TagId, expected.UserId, expected.State)
@@ -102,7 +108,12 @@ func TestDBNoteGet(t *testing.T) {
 func TestDBNoteCreate(t *testing.T) {
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		userId := CreateUserInDB(t, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
-		tagId := CreateTagInDB(t, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+		result, err := db.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
+			tagId, err := CreateTagInDB(t, tx, ctx, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+			return tagId, err
+		})()
+		tagId, ok := result.(int)
+		assert.True(t, ok)
 
 		expected := GenerateNote(1, userId, tagId)
 
@@ -122,7 +133,12 @@ func TestDBNoteGetAll(t *testing.T) {
 	})))
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		userId := CreateUserInDB(t, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
-		tagId := CreateTagInDB(t, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+		result, err := db.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
+			tagId, err := CreateTagInDB(t, tx, ctx, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+			return tagId, err
+		})()
+		tagId, ok := result.(int)
+		assert.True(t, ok)
 		var expectedNotes []entities.Note
 		for i := 1; i <= 10; i++ {
 			expectedNotes = append(expectedNotes, GenerateNote(i, userId, tagId))
@@ -135,7 +151,12 @@ func TestDBNoteGetAll(t *testing.T) {
 	})))
 	t.Run("LimitParameterCase", RunWithRecreateDB((func(t *testing.T) {
 		userId := CreateUserInDB(t, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
-		tagId := CreateTagInDB(t, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+		result, err := db.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
+			tagId, err := CreateTagInDB(t, tx, ctx, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+			return tagId, err
+		})()
+		tagId, ok := result.(int)
+		assert.True(t, ok)
 		var expectedNotes []entities.Note
 		for i := 1; i <= 5; i++ {
 			expectedNotes = append(expectedNotes, GenerateNote(i, userId, tagId))
@@ -148,7 +169,12 @@ func TestDBNoteGetAll(t *testing.T) {
 	})))
 	t.Run("OffsetParameterCase", RunWithRecreateDB((func(t *testing.T) {
 		userId := CreateUserInDB(t, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
-		tagId := CreateTagInDB(t, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+		result, err := db.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
+			tagId, err := CreateTagInDB(t, tx, ctx, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+			return tagId, err
+		})()
+		tagId, ok := result.(int)
+		assert.True(t, ok)
 		var expectedNotes []entities.Note
 		for i := 6; i <= 10; i++ {
 			expectedNotes = append(expectedNotes, GenerateNote(i, userId, tagId))
@@ -164,15 +190,25 @@ func TestDBNoteGetAll(t *testing.T) {
 func TestDBNoteUpdate(t *testing.T) {
 	t.Run("NotFoundCase", RunWithRecreateDB((func(t *testing.T) {
 		userId := CreateUserInDB(t, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
-		tagId := CreateTagInDB(t, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+		result, err := db.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
+			tagId, err := CreateTagInDB(t, tx, ctx, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+			return tagId, err
+		})()
+		tagId, ok := result.(int)
+		assert.True(t, ok)
 
-		err := queries.UpdateNote(db.GetInstance().GetDB(), 1, TEST_NOTE_TEXT_1, TEST_NOTE_TOPIC_1, tagId, userId, TEST_NOTE_STATE_1)
+		err = queries.UpdateNote(db.GetInstance().GetDB(), 1, TEST_NOTE_TEXT_1, TEST_NOTE_TOPIC_1, tagId, userId, TEST_NOTE_STATE_1)
 
 		assert.Equal(t, sql.ErrNoRows, err)
 	})))
 	t.Run("DeletedCase", RunWithRecreateDB((func(t *testing.T) {
 		userId := CreateUserInDB(t, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
-		tagId := CreateTagInDB(t, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+		result, err := db.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
+			tagId, err := CreateTagInDB(t, tx, ctx, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+			return tagId, err
+		})()
+		tagId, ok := result.(int)
+		assert.True(t, ok)
 
 		noteId, err := queries.CreateNote(db.GetInstance().GetDB(), TEST_NOTE_TEXT_1, TEST_NOTE_TOPIC_1, tagId, userId, TEST_NOTE_STATE_1)
 
@@ -189,7 +225,12 @@ func TestDBNoteUpdate(t *testing.T) {
 	})))
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		userId := CreateUserInDB(t, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
-		tagId := CreateTagInDB(t, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+		result, err := db.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
+			tagId, err := CreateTagInDB(t, tx, ctx, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+			return tagId, err
+		})()
+		tagId, ok := result.(int)
+		assert.True(t, ok)
 
 		expected := GenerateNote(1, userId, tagId)
 
@@ -216,10 +257,15 @@ func TestDBNoteDelete(t *testing.T) {
 	})))
 	t.Run("AlreadyDeletedCase", RunWithRecreateDB((func(t *testing.T) {
 		userId := CreateUserInDB(t, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
-		tagId := CreateTagInDB(t, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+		result, err := db.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
+			tagId, err := CreateTagInDB(t, tx, ctx, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+			return tagId, err
+		})()
+		tagId, ok := result.(int)
+		assert.True(t, ok)
 		noteId := CreateNoteInDB(t, TEST_NOTE_TEXT_1, TEST_NOTE_TOPIC_1, tagId, userId, TEST_NOTE_STATE_1)
 
-		err := queries.DeleteNote(db.GetInstance().GetDB(), noteId)
+		err = queries.DeleteNote(db.GetInstance().GetDB(), noteId)
 
 		assert.Nil(t, err)
 
@@ -229,7 +275,12 @@ func TestDBNoteDelete(t *testing.T) {
 	})))
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		userId := CreateUserInDB(t, TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
-		tagId := CreateTagInDB(t, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+		result, err := db.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
+			tagId, err := CreateTagInDB(t, tx, ctx, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+			return tagId, err
+		})()
+		tagId, ok := result.(int)
+		assert.True(t, ok)
 
 		var expectedNotes []entities.Note
 		expectedNotes = append(expectedNotes, GenerateNote(1, userId, tagId))
@@ -239,7 +290,7 @@ func TestDBNoteDelete(t *testing.T) {
 
 		CreateNotesInDB(t, 3, TEST_NOTE_TEXT_TEMPLATE, TEST_NOTE_TOPIC_TEMPLATE, tagId, userId, TEST_NOTE_STATE_1)
 
-		err := queries.DeleteNote(db.GetInstance().GetDB(), noteIdToDelete)
+		err = queries.DeleteNote(db.GetInstance().GetDB(), noteIdToDelete)
 
 		assert.Nil(t, err)
 

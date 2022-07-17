@@ -4,7 +4,10 @@
 package integration
 
 import (
+	"context"
 	"database/sql"
+	"errors"
+	"fmt"
 	"strconv"
 	"testing"
 
@@ -49,177 +52,332 @@ func AssertEqualTagArrays(t *testing.T, expected []entities.Tag, actual []entiti
 	}
 }
 
-func CreateTagInDB(t *testing.T, name string, state string) int {
-	tagId, err := queries.CreateTag(db.GetInstance().GetDB(), name, state)
+func CreateTagInDB(t *testing.T, tx *sql.Tx, ctx context.Context, name string, state string) (int, error) {
+	tagId, err := queries.CreateTag(tx, ctx, name, state)
 	assert.Nil(t, err)
 	assert.NotEqual(t, tagId, -1)
-	return tagId
+	return tagId, err
 }
 
-func CreateTagsInDB(t *testing.T, count int, nameTemplate string, state string) {
+func CreateTagsInDB(t *testing.T, tx *sql.Tx, ctx context.Context, count int, nameTemplate string, state string) error {
+	var lastErr error
 	for i := 1; i <= count; i++ {
-		CreateTagInDB(t, nameTemplate+strconv.Itoa(i), state)
+		_, err := CreateTagInDB(t, tx, ctx, GenerateTagName(TEST_TAG_NAME_TEMPLATE, i), state)
+		if err != nil {
+			lastErr = err
+		}
 	}
+	return lastErr
 }
 
 func TestDBTagGet(t *testing.T) {
 	t.Run("NotFoundCase", RunWithRecreateDB((func(t *testing.T) {
-		_, err := queries.GetTag(db.GetInstance().GetDB(), 1)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			_, err := queries.GetTag(tx, ctx, 1)
 
-		assert.Equal(t, sql.ErrNoRows, err)
+			assert.Equal(t, sql.ErrNoRows, err)
+			return err
+		})()
 	})))
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		expected := GenerateTag(1)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			tagId, err := queries.CreateTag(tx, ctx, expected.Name, expected.State)
+			assert.Nil(t, err)
+			assert.Equal(t, tagId, expected.Id)
+			return err
+		})()
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			actual, err := queries.GetTag(tx, ctx, expected.Id)
+			AssertEqualTags(t, expected, actual)
+			return err
+		})()
+	})))
+	t.Run("TimeoutError", RunWithRecreateDB((func(t *testing.T) {
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			expectedError := errors.New("error at loading tag by id '1' from db, case after QueryRow.Scan: context deadline exceeded")
+			_, err := tx.ExecContext(ctx, "SELECT pg_sleep(10)")
+			_, err = queries.GetTag(tx, ctx, 1)
 
-		tagId, err := queries.CreateTag(db.GetInstance().GetDB(), expected.Name, expected.State)
+			assert.Equal(t, expectedError, err)
+			return err
+		})()
+	})))
+	t.Run("ContextCancelled", RunWithRecreateDB((func(t *testing.T) {
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			expectedError := errors.New("error at loading tag by id '1' from db, case after QueryRow.Scan: context canceled")
+			cancel()
+			_, err := queries.GetTag(tx, ctx, 1)
 
-		assert.Nil(t, err)
-		assert.Equal(t, tagId, expected.Id)
-
-		actual, err := queries.GetTag(db.GetInstance().GetDB(), tagId)
-
-		AssertEqualTags(t, expected, actual)
+			assert.Equal(t, expectedError, err)
+			return err
+		})()
 	})))
 }
 
 func TestDBTagCreate(t *testing.T) {
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
-		tagId, err := queries.CreateTag(db.GetInstance().GetDB(), TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			tagId, err := queries.CreateTag(tx, ctx, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
-		assert.Nil(t, err)
-		assert.Equal(t, tagId, 1)
+			assert.Nil(t, err)
+			assert.Equal(t, tagId, 1)
+			return err
+		})()
 	})))
 	t.Run("DuplicateCase", RunWithRecreateDB((func(t *testing.T) {
-		tagId, err := queries.CreateTag(db.GetInstance().GetDB(), TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			tagId, err := queries.CreateTag(tx, ctx, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
-		assert.Nil(t, err)
-		assert.NotEqual(t, tagId, -1)
+			assert.Nil(t, err)
+			assert.NotEqual(t, tagId, -1)
+			return err
+		})()
 
-		_, err = queries.CreateTag(db.GetInstance().GetDB(), TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			_, err := queries.CreateTag(tx, ctx, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
-		assert.Equal(t, db.ErrorTagDuplicateKey, err)
+			assert.Equal(t, db.ErrorTagDuplicateKey, err)
+			return err
+		})()
+	})))
+	t.Run("TimeoutError", RunWithRecreateDB((func(t *testing.T) {
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			expectedError := fmt.Errorf("error at inserting tag (Name: '%s', State: '%s') into db, case after QueryRow.Scan: %s", TEST_TAG_NAME_1, TEST_TAG_STATE_1, "context deadline exceeded")
+			_, err := tx.ExecContext(ctx, "SELECT pg_sleep(10)")
+			_, err = queries.CreateTag(tx, ctx, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+
+			assert.Equal(t, expectedError, err)
+			return err
+		})()
+	})))
+	t.Run("ContextCancelled", RunWithRecreateDB((func(t *testing.T) {
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			expectedError := fmt.Errorf("error at inserting tag (Name: '%s', State: '%s') into db, case after QueryRow.Scan: %s", TEST_TAG_NAME_1, TEST_TAG_STATE_1, "context canceled")
+			cancel()
+			_, err := queries.CreateTag(tx, ctx, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+
+			assert.Equal(t, expectedError, err)
+			return err
+		})()
 	})))
 }
 
 func TestDBTagGetAll(t *testing.T) {
 	t.Run("ExpectedEmpty", RunWithRecreateDB((func(t *testing.T) {
-		tags, err := queries.GetTags(db.GetInstance().GetDB(), 50, 0)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			tags, err := queries.GetTags(tx, ctx, 50, 0)
 
-		assert.Nil(t, err)
-		assert.Equal(t, 0, len(tags))
+			assert.Nil(t, err)
+			assert.Equal(t, 0, len(tags))
+			return err
+		})()
 	})))
-	t.Run("ExpectedResult", RunWithRecreateDB((func(t *testing.T) {
+	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		var expectedTags []entities.Tag
 		for i := 1; i <= 10; i++ {
 			expectedTags = append(expectedTags, GenerateTag(i))
 		}
-		CreateTagsInDB(t, 10, TEST_TAG_NAME_TEMPLATE, entities.TAG_STATE_NEW)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			err := CreateTagsInDB(t, tx, ctx, 10, TEST_TAG_NAME_TEMPLATE, entities.TAG_STATE_NEW)
+			return err
+		})()
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			actualTags, err := queries.GetTags(tx, ctx, 50, 0)
 
-		actualTags, err := queries.GetTags(db.GetInstance().GetDB(), 50, 0)
-
-		assert.Nil(t, err)
-		AssertEqualTagArrays(t, expectedTags, actualTags)
+			assert.Nil(t, err)
+			AssertEqualTagArrays(t, expectedTags, actualTags)
+			return err
+		})()
 	})))
 	t.Run("LimitParameterCase", RunWithRecreateDB((func(t *testing.T) {
 		var expectedTags []entities.Tag
 		for i := 1; i <= 5; i++ {
 			expectedTags = append(expectedTags, GenerateTag(i))
 		}
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			err := CreateTagsInDB(t, tx, ctx, 10, TEST_TAG_NAME_TEMPLATE, entities.TAG_STATE_NEW)
+			return err
+		})()
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			actualTags, err := queries.GetTags(tx, ctx, 5, 0)
 
-		CreateTagsInDB(t, 10, TEST_TAG_NAME_TEMPLATE, entities.TAG_STATE_NEW)
-
-		actualTags, err := queries.GetTags(db.GetInstance().GetDB(), 5, 0)
-
-		assert.Nil(t, err)
-		AssertEqualTagArrays(t, expectedTags, actualTags)
+			assert.Nil(t, err)
+			AssertEqualTagArrays(t, expectedTags, actualTags)
+			return err
+		})()
 	})))
 	t.Run("OffsetParameterCase", RunWithRecreateDB((func(t *testing.T) {
 		var expectedTags []entities.Tag
 		for i := 6; i <= 10; i++ {
 			expectedTags = append(expectedTags, GenerateTag(i))
 		}
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			err := CreateTagsInDB(t, tx, ctx, 10, TEST_TAG_NAME_TEMPLATE, entities.TAG_STATE_NEW)
+			return err
+		})()
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			actualTags, err := queries.GetTags(tx, ctx, 50, 5)
 
-		CreateTagsInDB(t, 10, TEST_TAG_NAME_TEMPLATE, entities.TAG_STATE_NEW)
+			assert.Nil(t, err)
+			AssertEqualTagArrays(t, expectedTags, actualTags)
+			return err
+		})()
+	})))
+	t.Run("TimeoutError", RunWithRecreateDB((func(t *testing.T) {
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			expectedError := fmt.Errorf("error at loading tags from db, case after Query: context deadline exceeded")
+			_, err := tx.ExecContext(ctx, "SELECT pg_sleep(10)")
+			_, err = queries.GetTags(tx, ctx, 50, 0)
 
-		actualTags, err := queries.GetTags(db.GetInstance().GetDB(), 50, 5)
+			assert.Equal(t, expectedError, err)
+			return err
+		})()
+	})))
+	t.Run("ContextCancelled", RunWithRecreateDB((func(t *testing.T) {
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			expectedError := fmt.Errorf("error at loading tags from db, case after Query: context canceled")
+			cancel()
+			_, err := queries.GetTags(tx, ctx, 50, 0)
 
-		assert.Nil(t, err)
-		AssertEqualTagArrays(t, expectedTags, actualTags)
+			assert.Equal(t, expectedError, err)
+			return err
+		})()
 	})))
 }
 
 func TestDBTagUpdate(t *testing.T) {
 	t.Run("NotFoundCase", RunWithRecreateDB((func(t *testing.T) {
-		err := queries.UpdateTag(db.GetInstance().GetDB(), 1, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			err := queries.UpdateTag(tx, ctx, 1, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
-		assert.Equal(t, sql.ErrNoRows, err)
+			assert.Equal(t, sql.ErrNoRows, err)
+			return err
+		})()
 	})))
 	t.Run("DeletedCase", RunWithRecreateDB((func(t *testing.T) {
-		tagId, err := queries.CreateTag(db.GetInstance().GetDB(), TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+		expectedTagId := 1
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			tagId, err := queries.CreateTag(tx, ctx, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
-		assert.Nil(t, err)
-		assert.NotEqual(t, tagId, -1)
+			assert.Nil(t, err)
+			assert.Equal(t, expectedTagId, tagId)
+			return err
+		})()
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			err := queries.DeleteTag(tx, ctx, expectedTagId)
 
-		err = queries.DeleteTag(db.GetInstance().GetDB(), tagId)
+			assert.Nil(t, err)
+			return err
+		})()
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			err := queries.UpdateTag(tx, ctx, expectedTagId, TEST_TAG_NAME_2, TEST_TAG_STATE_2)
 
-		assert.Nil(t, err)
-
-		err = queries.UpdateTag(db.GetInstance().GetDB(), tagId, TEST_TAG_NAME_2, TEST_TAG_STATE_2)
-
-		assert.Equal(t, sql.ErrNoRows, err)
+			assert.Equal(t, sql.ErrNoRows, err)
+			return err
+		})()
 	})))
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		expected := GenerateTag(1)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			tagId, err := queries.CreateTag(tx, ctx, TEST_TAG_NAME_2, TEST_TAG_STATE_2)
 
-		tagId, err := queries.CreateTag(db.GetInstance().GetDB(), TEST_TAG_NAME_2, TEST_TAG_STATE_2)
+			assert.Nil(t, err)
+			assert.Equal(t, expected.Id, tagId)
+			return err
+		})()
 
-		assert.Nil(t, err)
-		assert.Equal(t, expected.Id, tagId)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			err := queries.UpdateTag(tx, ctx, expected.Id, expected.Name, expected.State)
 
-		err = queries.UpdateTag(db.GetInstance().GetDB(), expected.Id, expected.Name, expected.State)
+			assert.Nil(t, err)
+			return err
+		})()
 
-		assert.Nil(t, err)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			actual, err := queries.GetTag(tx, ctx, expected.Id)
 
-		actual, err := queries.GetTag(db.GetInstance().GetDB(), expected.Id)
-
-		AssertEqualTags(t, expected, actual)
+			AssertEqualTags(t, expected, actual)
+			return err
+		})()
 	})))
 	t.Run("DuplicateCase", RunWithRecreateDB((func(t *testing.T) {
-		tagId, err := queries.CreateTag(db.GetInstance().GetDB(), TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+		expectedTagId1 := 1
+		expectedTagId2 := 2
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			tagId, err := queries.CreateTag(tx, ctx, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
-		assert.Nil(t, err)
-		assert.NotEqual(t, tagId, -1)
+			assert.Nil(t, err)
+			assert.Equal(t, expectedTagId1, tagId)
+			return err
+		})()
 
-		tagId, err = queries.CreateTag(db.GetInstance().GetDB(), TEST_TAG_NAME_2, TEST_TAG_STATE_2)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			tagId, err := queries.CreateTag(tx, ctx, TEST_TAG_NAME_2, TEST_TAG_STATE_2)
 
-		assert.Nil(t, err)
-		assert.NotEqual(t, tagId, -1)
+			assert.Nil(t, err)
+			assert.Equal(t, expectedTagId2, tagId)
+			return err
+		})()
 
-		actualError := queries.UpdateTag(db.GetInstance().GetDB(), tagId, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			err := queries.UpdateTag(tx, ctx, expectedTagId2, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
-		assert.Equal(t, db.ErrorTagDuplicateKey, actualError)
+			assert.Equal(t, db.ErrorTagDuplicateKey, err)
+			return err
+		})()
+	})))
+	t.Run("TimeoutError", RunWithRecreateDB((func(t *testing.T) {
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			expectedError := fmt.Errorf("error at updating tag, case after preparing statement: %s", "context deadline exceeded")
+			_, err := tx.ExecContext(ctx, "SELECT pg_sleep(10)")
+			err = queries.UpdateTag(tx, ctx, 1, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+
+			assert.Equal(t, expectedError, err)
+			return err
+		})()
+	})))
+	t.Run("ContextCancelled", RunWithRecreateDB((func(t *testing.T) {
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			expectedError := fmt.Errorf("error at updating tag, case after preparing statement: %s", "context canceled")
+			cancel()
+			err := queries.UpdateTag(tx, ctx, 1, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+			assert.Equal(t, expectedError, err)
+			return err
+		})()
 	})))
 }
 
 func TestDBTagDelete(t *testing.T) {
 	t.Run("NotFoundCase", RunWithRecreateDB((func(t *testing.T) {
-		err := queries.DeleteTag(db.GetInstance().GetDB(), 1)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			err := queries.DeleteTag(tx, ctx, 1)
 
-		assert.Equal(t, sql.ErrNoRows, err)
+			assert.Equal(t, sql.ErrNoRows, err)
+			return err
+		})()
 	})))
 	t.Run("AlreadyDeletedCase", RunWithRecreateDB((func(t *testing.T) {
-		tagId, err := queries.CreateTag(db.GetInstance().GetDB(), TEST_TAG_NAME_1, TEST_TAG_STATE_1)
+		expectedTagId := 1
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			tagId, err := queries.CreateTag(tx, ctx, TEST_TAG_NAME_1, TEST_TAG_STATE_1)
 
-		assert.Nil(t, err)
-		assert.NotEqual(t, tagId, -1)
+			assert.Nil(t, err)
+			assert.Equal(t, expectedTagId, tagId)
+			return err
+		})()
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			err := queries.DeleteTag(tx, ctx, expectedTagId)
 
-		err = queries.DeleteTag(db.GetInstance().GetDB(), tagId)
+			assert.Nil(t, err)
+			return err
+		})()
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			err := queries.DeleteTag(tx, ctx, expectedTagId)
 
-		assert.Nil(t, err)
-
-		err = queries.DeleteTag(db.GetInstance().GetDB(), tagId)
-
-		assert.Equal(t, sql.ErrNoRows, err)
+			assert.Equal(t, sql.ErrNoRows, err)
+			return err
+		})()
 	})))
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		var expectedTags []entities.Tag
@@ -227,20 +385,53 @@ func TestDBTagDelete(t *testing.T) {
 		expectedTags = append(expectedTags, GenerateTag(3))
 
 		tagIdToDelete := 2
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 
-		CreateTagsInDB(t, 3, TEST_TAG_NAME_TEMPLATE, entities.TAG_STATE_NEW)
+			err := CreateTagsInDB(t, tx, ctx, 3, TEST_TAG_NAME_TEMPLATE, entities.TAG_STATE_NEW)
+			return err
+		})()
 
-		err := queries.DeleteTag(db.GetInstance().GetDB(), tagIdToDelete)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			err := queries.DeleteTag(tx, ctx, tagIdToDelete)
 
-		assert.Nil(t, err)
+			assert.Nil(t, err)
+			return err
+		})()
 
-		tags, err := queries.GetTags(db.GetInstance().GetDB(), 50, 0)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			tags, err := queries.GetTags(tx, ctx, 50, 0)
 
-		assert.Nil(t, err)
-		AssertEqualTagArrays(t, expectedTags, tags)
+			assert.Nil(t, err)
+			AssertEqualTagArrays(t, expectedTags, tags)
+			return err
+		})()
 
-		_, err = queries.GetTag(db.GetInstance().GetDB(), tagIdToDelete)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			_, err := queries.GetTag(tx, ctx, tagIdToDelete)
 
-		assert.Equal(t, sql.ErrNoRows, err)
+			assert.Equal(t, sql.ErrNoRows, err)
+			return err
+		})()
+	})))
+	t.Run("TimeoutError", RunWithRecreateDB((func(t *testing.T) {
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			tagId := 1
+			expectedError := fmt.Errorf("error at deleting tag, case after preparing statement: %s", "context deadline exceeded")
+			_, err := tx.ExecContext(ctx, "SELECT pg_sleep(10)")
+			err = queries.DeleteTag(tx, ctx, tagId)
+
+			assert.Equal(t, expectedError, err)
+			return err
+		})()
+	})))
+	t.Run("ContextCancelled", RunWithRecreateDB((func(t *testing.T) {
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			tagId := 1
+			expectedError := fmt.Errorf("error at deleting tag, case after preparing statement: %s", "context canceled")
+			cancel()
+			err := queries.DeleteTag(tx, ctx, tagId)
+			assert.Equal(t, expectedError, err)
+			return err
+		})()
 	})))
 }
