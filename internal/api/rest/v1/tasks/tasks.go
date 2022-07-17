@@ -69,15 +69,16 @@ func GetTasks(c *gin.Context) {
 		offset = 0
 	}
 
-	db.RunWithWithTimeout(func(database *sql.DB, ctx context.Context) {
-		tasks, err := queries.GetTasks(database, ctx, limit, offset)
+	db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+		tasks, err := queries.GetTasks(tx, ctx, limit, offset)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, "Unable to get tasks")
 			log.Printf("Unable to get to tasks : %s", err)
-			return
+			return err
 		}
 		result := &TaskListDTO{Data: convertTasks(tasks), Count: len(tasks), Offset: offset, Limit: limit}
 		c.JSON(http.StatusOK, result)
+		return err
 	})()
 }
 
@@ -96,8 +97,8 @@ func GetTask(c *gin.Context) {
 		return
 	}
 
-	db.RunWithWithTimeout(func(database *sql.DB, ctx context.Context) {
-		task, err := queries.GetTask(database, ctx, taskId)
+	db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+		task, err := queries.GetTask(tx, ctx, taskId)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
@@ -105,9 +106,10 @@ func GetTask(c *gin.Context) {
 				c.JSON(http.StatusInternalServerError, "Unable to get task")
 				log.Printf("Unable to get to task : %s", err)
 			}
-			return
+			return err
 		}
 		c.JSON(http.StatusOK, task)
+		return err
 	})()
 }
 
@@ -131,19 +133,20 @@ func CreateTask(c *gin.Context) {
 		return
 	}
 
-	db.RunWithWithTimeout(func(database *sql.DB, ctx context.Context) {
-		result, err := queries.CreateTask(database, ctx, task.Name, task.State)
+	db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+		result, err := queries.CreateTask(tx, ctx, task.Name, task.State)
 		if err != nil || result == -1 {
 			if err.Error() == db.ErrorTaskDuplicateKey.Error() {
 				c.JSON(http.StatusBadRequest, api.DUPLICATE_FOUND)
-				return
+			} else {
+				c.JSON(http.StatusInternalServerError, "Unable to create task")
+				log.Printf("Unable to create task : %s", err)
 			}
-			c.JSON(http.StatusInternalServerError, "Unable to create task")
-			log.Printf("Unable to create task : %s", err)
-			return
+			return err
 
 		}
 		c.JSON(http.StatusCreated, result)
+		return err
 	})()
 }
 
@@ -181,23 +184,22 @@ func UpdateTask(c *gin.Context) {
 		return
 	}
 
-	db.RunWithWithTimeout(func(database *sql.DB, ctx context.Context) {
-		err := queries.UpdateTask(database, ctx, taskId, task.Name, task.State)
+	db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+		err := queries.UpdateTask(tx, ctx, taskId, task.Name, task.State)
 
 		if err != nil {
 			if err == sql.ErrNoRows {
 				c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
-				return
-			}
-			if err.Error() == db.ErrorTaskDuplicateKey.Error() {
+			} else if err.Error() == db.ErrorTaskDuplicateKey.Error() {
 				c.JSON(http.StatusBadRequest, api.DUPLICATE_FOUND)
-				return
+			} else {
+				c.JSON(http.StatusInternalServerError, "Unable to update task")
+				log.Printf("Unable to update task : %s", err)
 			}
-			c.JSON(http.StatusInternalServerError, "Unable to update task")
-			log.Printf("Unable to update task : %s", err)
-			return
+			return err
 		}
 		c.JSON(http.StatusOK, api.DONE)
+		return err
 	})()
 }
 
@@ -216,18 +218,19 @@ func DeleteTask(c *gin.Context) {
 		return
 	}
 
-	db.RunWithWithTimeout(func(database *sql.DB, ctx context.Context) {
-		err := queries.DeleteTask(database, ctx, id)
+	db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+		err := queries.DeleteTask(tx, ctx, id)
 
 		if err != nil {
 			if err == sql.ErrNoRows {
 				c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
-				return
+			} else {
+				c.JSON(http.StatusInternalServerError, "Unable to delete task")
+				log.Printf("Unable to delete task: %s", err)
 			}
-			c.JSON(http.StatusInternalServerError, "Unable to delete task")
-			log.Printf("Unable to delete task: %s", err)
-			return
+			return err
 		}
 		c.JSON(http.StatusOK, api.DONE)
+		return err
 	})()
 }
