@@ -6,7 +6,6 @@ package integration
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"strconv"
 	"testing"
@@ -95,7 +94,7 @@ func TestDBTaskGet(t *testing.T) {
 	})))
 	t.Run("TimeoutError", RunWithRecreateDB((func(t *testing.T) {
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
-			expectedError := errors.New("error at loading task by id '1' from db, case after QueryRow.Scan: context deadline exceeded")
+			expectedError := fmt.Errorf("error at loading task by id '%d' from db, case after QueryRow.Scan: %s", 1, "context deadline exceeded")
 			_, err := tx.ExecContext(ctx, "SELECT pg_sleep(10)")
 			_, err = queries.GetTask(tx, ctx, 1)
 
@@ -105,7 +104,7 @@ func TestDBTaskGet(t *testing.T) {
 	})))
 	t.Run("ContextCancelled", RunWithRecreateDB((func(t *testing.T) {
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
-			expectedError := errors.New("error at loading task by id '1' from db, case after QueryRow.Scan: context canceled")
+			expectedError := fmt.Errorf("error at loading task by id '%d' from db, case after QueryRow.Scan: %s", 1, "context canceled")
 			cancel()
 			_, err := queries.GetTask(tx, ctx, 1)
 
@@ -415,10 +414,9 @@ func TestDBTaskDelete(t *testing.T) {
 	})))
 	t.Run("TimeoutError", RunWithRecreateDB((func(t *testing.T) {
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
-			taskId := 1
 			expectedError := fmt.Errorf("error at deleting task, case after preparing statement: %s", "context deadline exceeded")
 			_, err := tx.ExecContext(ctx, "SELECT pg_sleep(10)")
-			err = queries.DeleteTask(tx, ctx, taskId)
+			err = queries.DeleteTask(tx, ctx, 1)
 
 			assert.Equal(t, expectedError, err)
 			return err
@@ -426,10 +424,9 @@ func TestDBTaskDelete(t *testing.T) {
 	})))
 	t.Run("ContextCancelled", RunWithRecreateDB((func(t *testing.T) {
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
-			taskId := 1
 			expectedError := fmt.Errorf("error at deleting task, case after preparing statement: %s", "context canceled")
 			cancel()
-			err := queries.DeleteTask(tx, ctx, taskId)
+			err := queries.DeleteTask(tx, ctx, 1)
 			assert.Equal(t, expectedError, err)
 			return err
 		})()
