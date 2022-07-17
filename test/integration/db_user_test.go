@@ -252,7 +252,7 @@ func TestDBUserGetAll(t *testing.T) {
 	})))
 	t.Run("TimeoutError", RunWithRecreateDB((func(t *testing.T) {
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
-			expectedError := fmt.Errorf("error at loading users from db, case after Query: context deadline exceeded")
+			expectedError := fmt.Errorf("error at loading users from db, case after Query: %s", "context deadline exceeded")
 			_, err := tx.ExecContext(ctx, "SELECT pg_sleep(10)")
 			_, err = queries.GetUsers(tx, ctx, 50, 0)
 
@@ -262,7 +262,7 @@ func TestDBUserGetAll(t *testing.T) {
 	})))
 	t.Run("ContextCancelled", RunWithRecreateDB((func(t *testing.T) {
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
-			expectedError := fmt.Errorf("error at loading users from db, case after Query: context canceled")
+			expectedError := fmt.Errorf("error at loading users from db, case after Query: %s", "context canceled")
 			cancel()
 			_, err := queries.GetUsers(tx, ctx, 50, 0)
 
