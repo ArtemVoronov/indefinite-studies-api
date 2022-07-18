@@ -20,11 +20,18 @@ import (
 	"github.com/joho/godotenv"
 )
 
-var Router *gin.Engine
+type Utils struct {
+	asserts          TestAsserts
+	entityGenerators TestEntityGenerators
+}
+
+var utils Utils = Utils{asserts: TestAsserts{}}
+
+var TestRouter *gin.Engine
 
 func TestMain(m *testing.M) {
 	Setup()
-	Router = SetupRouter()
+	TestRouter = SetupRouter()
 	code := m.Run()
 	Shutdown()
 	os.Exit(code)

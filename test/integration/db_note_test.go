@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strconv"
 	"testing"
 
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db"
@@ -15,73 +14,6 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/queries"
 	"github.com/stretchr/testify/assert"
 )
-
-const (
-	TEST_NOTE_TEXT_1  string = "Test text 1"
-	TEST_NOTE_TOPIC_1 string = "Test topic 1"
-	TEST_NOTE_STATE_1 string = entities.NOTE_STATE_NEW
-	TEST_NOTE_TEXT_2  string = "Test text 2"
-	TEST_NOTE_TOPIC_2 string = "Test topic 2"
-	TEST_NOTE_STATE_2 string = entities.NOTE_STATE_BLOCKED
-
-	TEST_NOTE_TEXT_TEMPLATE  string = "Test text "
-	TEST_NOTE_TOPIC_TEMPLATE string = "Test topic "
-)
-
-func GenerateNoteText(template string, id int) string {
-	return template + strconv.Itoa(id)
-}
-
-func GenerateNoteTopic(template string, id int) string {
-	return template + strconv.Itoa(id)
-}
-
-func GenerateNote(noteId int, userId int, tagId int) entities.Note {
-	return entities.Note{
-		Id:     noteId,
-		Text:   GenerateNoteText(TEST_NOTE_TEXT_TEMPLATE, noteId),
-		Topic:  GenerateNoteTopic(TEST_NOTE_TOPIC_TEMPLATE, noteId),
-		TagId:  tagId,
-		UserId: userId,
-		State:  TEST_USER_STATE_1,
-	}
-}
-
-func AssertEqualNotes(t *testing.T, expected entities.Note, actual entities.Note) {
-	assert.Equal(t, expected.Id, actual.Id)
-	assert.Equal(t, expected.Text, actual.Text)
-	assert.Equal(t, expected.Topic, actual.Topic)
-	assert.Equal(t, expected.TagId, actual.TagId)
-	assert.Equal(t, expected.UserId, actual.UserId)
-	assert.Equal(t, expected.State, actual.State)
-}
-
-func AssertEqualNoteArrays(t *testing.T, expected []entities.Note, actual []entities.Note) {
-	assert.Equal(t, len(expected), len(actual))
-
-	length := len(expected)
-	for i := 0; i < length; i++ {
-		AssertEqualNotes(t, expected[i], actual[i])
-	}
-}
-
-func CreateNoteInDB(t *testing.T, tx *sql.Tx, ctx context.Context, text string, topic string, tagId int, userId int, state string) (int, error) {
-	noteId, err := queries.CreateNote(tx, ctx, text, topic, tagId, userId, state)
-	assert.Nil(t, err)
-	assert.NotEqual(t, noteId, -1)
-	return noteId, err
-}
-
-func CreateNotesInDB(t *testing.T, tx *sql.Tx, ctx context.Context, count int, textTemplate string, topicTemplate string, tagId int, userId int, state string) error {
-	var lastErr error
-	for i := 1; i <= count; i++ {
-		_, err := CreateNoteInDB(t, tx, ctx, GenerateNoteText(textTemplate, i), GenerateNoteTopic(topicTemplate, i), tagId, userId, state)
-		if err != nil {
-			lastErr = err
-		}
-	}
-	return lastErr
-}
 
 func TestDBNoteGet(t *testing.T) {
 	t.Run("NotFoundCase", RunWithRecreateDB((func(t *testing.T) {
@@ -107,7 +39,7 @@ func TestDBNoteGet(t *testing.T) {
 		tagId, ok := result.(int)
 		assert.True(t, ok)
 
-		expected := GenerateNote(1, userId, tagId)
+		expected := utils.entityGenerators.GenerateNote(1, userId, tagId)
 
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 			noteId, err := queries.CreateNote(tx, ctx, expected.Text, expected.Topic, expected.TagId, expected.UserId, expected.State)
@@ -120,7 +52,7 @@ func TestDBNoteGet(t *testing.T) {
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 			actual, err := queries.GetNote(tx, ctx, expected.Id)
 
-			AssertEqualNotes(t, expected, actual)
+			utils.asserts.AssertEqualNotes(t, expected, actual)
 			return err
 		})()
 	})))
@@ -162,7 +94,7 @@ func TestDBNoteCreate(t *testing.T) {
 		tagId, ok := result.(int)
 		assert.True(t, ok)
 
-		expected := GenerateNote(1, userId, tagId)
+		expected := utils.entityGenerators.GenerateNote(1, userId, tagId)
 
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 			noteId, err := queries.CreateNote(tx, ctx, expected.Text, expected.Topic, expected.TagId, expected.UserId, expected.State)
@@ -221,7 +153,7 @@ func TestDBNoteGetAll(t *testing.T) {
 
 		var expectedNotes []entities.Note
 		for i := 1; i <= 10; i++ {
-			expectedNotes = append(expectedNotes, GenerateNote(i, userId, tagId))
+			expectedNotes = append(expectedNotes, utils.entityGenerators.GenerateNote(i, userId, tagId))
 		}
 
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
@@ -233,7 +165,7 @@ func TestDBNoteGetAll(t *testing.T) {
 			actualNotes, err := queries.GetNotes(tx, ctx, 50, 0)
 
 			assert.Nil(t, err)
-			AssertEqualNoteArrays(t, expectedNotes, actualNotes)
+			utils.asserts.AssertEqualNoteArrays(t, expectedNotes, actualNotes)
 			return err
 		})()
 	})))
@@ -254,7 +186,7 @@ func TestDBNoteGetAll(t *testing.T) {
 
 		var expectedNotes []entities.Note
 		for i := 1; i <= 5; i++ {
-			expectedNotes = append(expectedNotes, GenerateNote(i, userId, tagId))
+			expectedNotes = append(expectedNotes, utils.entityGenerators.GenerateNote(i, userId, tagId))
 		}
 
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
@@ -266,7 +198,7 @@ func TestDBNoteGetAll(t *testing.T) {
 			actualNotes, err := queries.GetNotes(tx, ctx, 5, 0)
 
 			assert.Nil(t, err)
-			AssertEqualNoteArrays(t, expectedNotes, actualNotes)
+			utils.asserts.AssertEqualNoteArrays(t, expectedNotes, actualNotes)
 			return err
 		})()
 	})))
@@ -287,7 +219,7 @@ func TestDBNoteGetAll(t *testing.T) {
 
 		var expectedNotes []entities.Note
 		for i := 6; i <= 10; i++ {
-			expectedNotes = append(expectedNotes, GenerateNote(i, userId, tagId))
+			expectedNotes = append(expectedNotes, utils.entityGenerators.GenerateNote(i, userId, tagId))
 		}
 
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
@@ -299,7 +231,7 @@ func TestDBNoteGetAll(t *testing.T) {
 			actualNotes, err := queries.GetNotes(tx, ctx, 50, 5)
 
 			assert.Nil(t, err)
-			AssertEqualNoteArrays(t, expectedNotes, actualNotes)
+			utils.asserts.AssertEqualNoteArrays(t, expectedNotes, actualNotes)
 			return err
 		})()
 	})))
@@ -401,7 +333,7 @@ func TestDBNoteUpdate(t *testing.T) {
 		tagId, ok := result.(int)
 		assert.True(t, ok)
 
-		expected := GenerateNote(1, userId, tagId)
+		expected := utils.entityGenerators.GenerateNote(1, userId, tagId)
 
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 			noteId, err := queries.CreateNote(tx, ctx, TEST_NOTE_TEXT_2, TEST_NOTE_TOPIC_2, tagId, userId, TEST_NOTE_STATE_2)
@@ -421,7 +353,7 @@ func TestDBNoteUpdate(t *testing.T) {
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 			actual, err := queries.GetNote(tx, ctx, expected.Id)
 
-			AssertEqualNotes(t, expected, actual)
+			utils.asserts.AssertEqualNotes(t, expected, actual)
 			return err
 		})()
 	})))
@@ -510,8 +442,8 @@ func TestDBNoteDelete(t *testing.T) {
 		assert.True(t, ok)
 
 		var expectedNotes []entities.Note
-		expectedNotes = append(expectedNotes, GenerateNote(1, userId, tagId))
-		expectedNotes = append(expectedNotes, GenerateNote(3, userId, tagId))
+		expectedNotes = append(expectedNotes, utils.entityGenerators.GenerateNote(1, userId, tagId))
+		expectedNotes = append(expectedNotes, utils.entityGenerators.GenerateNote(3, userId, tagId))
 
 		noteIdToDelete := 2
 
@@ -531,7 +463,7 @@ func TestDBNoteDelete(t *testing.T) {
 			notes, err := queries.GetNotes(tx, ctx, 50, 0)
 
 			assert.Nil(t, err)
-			AssertEqualNoteArrays(t, expectedNotes, notes)
+			utils.asserts.AssertEqualNoteArrays(t, expectedNotes, notes)
 			return err
 		})()
 

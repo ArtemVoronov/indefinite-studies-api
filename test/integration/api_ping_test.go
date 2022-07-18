@@ -15,7 +15,7 @@ func TestApiPing(t *testing.T) {
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		w := httptest.NewRecorder()
 		req, _ := http.NewRequest(http.MethodGet, "/ping", nil)
-		Router.ServeHTTP(w, req)
+		TestRouter.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
 		assert.Equal(t, "\"Pong!\"", w.Body.String())
