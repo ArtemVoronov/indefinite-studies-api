@@ -12,18 +12,27 @@ import (
 	"testing"
 
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/ping"
+	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/tags"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/tasks"
+	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/users"
 
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
 
-var Router *gin.Engine
+type Utils struct {
+	asserts          TestAsserts
+	entityGenerators TestEntityGenerators
+}
+
+var utils Utils = Utils{asserts: TestAsserts{}}
+
+var TestRouter *gin.Engine
 
 func TestMain(m *testing.M) {
 	Setup()
-	Router = SetupRouter()
+	TestRouter = SetupRouter()
 	code := m.Run()
 	Shutdown()
 	os.Exit(code)
@@ -39,6 +48,18 @@ func SetupRouter() *gin.Engine {
 	r.POST("/tasks", tasks.CreateTask)
 	r.PUT("/tasks/:id", tasks.UpdateTask)
 	r.DELETE("/tasks/:id", tasks.DeleteTask)
+
+	r.GET("/tags", tags.GetTags)
+	r.GET("/tags/:id", tags.GetTag)
+	r.POST("/tags", tags.CreateTag)
+	r.PUT("/tags/:id", tags.UpdateTag)
+	r.DELETE("/tags/:id", tags.DeleteTag)
+
+	r.GET("/users", users.GetUsers)
+	r.GET("/users/:id", users.GetUser)
+	r.POST("/users", users.CreateUser)
+	r.PUT("/users/:id", users.UpdateUser)
+	r.DELETE("/users/:id", users.DeleteUser)
 
 	return r
 }

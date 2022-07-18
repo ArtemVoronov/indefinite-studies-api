@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strconv"
 	"testing"
 
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db"
@@ -15,59 +14,6 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/queries"
 	"github.com/stretchr/testify/assert"
 )
-
-const (
-	TEST_TASK_NAME_1        string = "Test task 1"
-	TEST_TASK_STATE_1       string = entities.TASK_STATE_NEW
-	TEST_TASK_NAME_2        string = "Test task 2"
-	TEST_TASK_STATE_2       string = entities.TASK_STATE_DONE
-	TEST_TASK_NAME_TEMPLATE string = "Test task "
-)
-
-func GenerateTask(id int) entities.Task {
-	return entities.Task{
-		Id:    id,
-		Name:  GenerateTaskName(TEST_TASK_NAME_TEMPLATE, id),
-		State: TEST_TASK_STATE_1,
-	}
-}
-
-func GenerateTaskName(template string, id int) string {
-	return template + strconv.Itoa(id)
-}
-
-func AssertEqualTasks(t *testing.T, expected entities.Task, actual entities.Task) {
-	assert.Equal(t, expected.Id, actual.Id)
-	assert.Equal(t, expected.Name, actual.Name)
-	assert.Equal(t, expected.State, actual.State)
-}
-
-func AssertEqualTaskArrays(t *testing.T, expected []entities.Task, actual []entities.Task) {
-	assert.Equal(t, len(expected), len(actual))
-
-	length := len(expected)
-	for i := 0; i < length; i++ {
-		AssertEqualTasks(t, expected[i], actual[i])
-	}
-}
-
-func CreateTaskInDB(t *testing.T, tx *sql.Tx, ctx context.Context, name string, state string) (int, error) {
-	taskId, err := queries.CreateTask(tx, ctx, name, state)
-	assert.Nil(t, err)
-	assert.NotEqual(t, taskId, -1)
-	return taskId, err
-}
-
-func CreateTasksInDB(t *testing.T, tx *sql.Tx, ctx context.Context, count int, nameTemplate string, state string) error {
-	var lastErr error
-	for i := 1; i <= count; i++ {
-		_, err := CreateTaskInDB(t, tx, ctx, GenerateTaskName(TEST_TASK_NAME_TEMPLATE, i), state)
-		if err != nil {
-			lastErr = err
-		}
-	}
-	return lastErr
-}
 
 func TestDBTaskGet(t *testing.T) {
 	t.Run("NotFoundCase", RunWithRecreateDB((func(t *testing.T) {
@@ -79,7 +25,7 @@ func TestDBTaskGet(t *testing.T) {
 		})()
 	})))
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
-		expected := GenerateTask(1)
+		expected := utils.entityGenerators.GenerateTask(1)
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 			taskId, err := queries.CreateTask(tx, ctx, expected.Name, expected.State)
 			assert.Nil(t, err)
@@ -88,7 +34,7 @@ func TestDBTaskGet(t *testing.T) {
 		})()
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 			actual, err := queries.GetTask(tx, ctx, expected.Id)
-			AssertEqualTasks(t, expected, actual)
+			utils.asserts.AssertEqualTasks(t, expected, actual)
 			return err
 		})()
 	})))
@@ -175,7 +121,7 @@ func TestDBTaskGetAll(t *testing.T) {
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		var expectedTasks []entities.Task
 		for i := 1; i <= 10; i++ {
-			expectedTasks = append(expectedTasks, GenerateTask(i))
+			expectedTasks = append(expectedTasks, utils.entityGenerators.GenerateTask(i))
 		}
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 			err := CreateTasksInDB(t, tx, ctx, 10, TEST_TASK_NAME_TEMPLATE, entities.TASK_STATE_NEW)
@@ -185,14 +131,14 @@ func TestDBTaskGetAll(t *testing.T) {
 			actualTasks, err := queries.GetTasks(tx, ctx, 50, 0)
 
 			assert.Nil(t, err)
-			AssertEqualTaskArrays(t, expectedTasks, actualTasks)
+			utils.asserts.AssertEqualTaskArrays(t, expectedTasks, actualTasks)
 			return err
 		})()
 	})))
 	t.Run("LimitParameterCase", RunWithRecreateDB((func(t *testing.T) {
 		var expectedTasks []entities.Task
 		for i := 1; i <= 5; i++ {
-			expectedTasks = append(expectedTasks, GenerateTask(i))
+			expectedTasks = append(expectedTasks, utils.entityGenerators.GenerateTask(i))
 		}
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 			err := CreateTasksInDB(t, tx, ctx, 10, TEST_TASK_NAME_TEMPLATE, entities.TASK_STATE_NEW)
@@ -202,14 +148,14 @@ func TestDBTaskGetAll(t *testing.T) {
 			actualTasks, err := queries.GetTasks(tx, ctx, 5, 0)
 
 			assert.Nil(t, err)
-			AssertEqualTaskArrays(t, expectedTasks, actualTasks)
+			utils.asserts.AssertEqualTaskArrays(t, expectedTasks, actualTasks)
 			return err
 		})()
 	})))
 	t.Run("OffsetParameterCase", RunWithRecreateDB((func(t *testing.T) {
 		var expectedTasks []entities.Task
 		for i := 6; i <= 10; i++ {
-			expectedTasks = append(expectedTasks, GenerateTask(i))
+			expectedTasks = append(expectedTasks, utils.entityGenerators.GenerateTask(i))
 		}
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 			err := CreateTasksInDB(t, tx, ctx, 10, TEST_TASK_NAME_TEMPLATE, entities.TASK_STATE_NEW)
@@ -219,7 +165,7 @@ func TestDBTaskGetAll(t *testing.T) {
 			actualTasks, err := queries.GetTasks(tx, ctx, 50, 5)
 
 			assert.Nil(t, err)
-			AssertEqualTaskArrays(t, expectedTasks, actualTasks)
+			utils.asserts.AssertEqualTaskArrays(t, expectedTasks, actualTasks)
 			return err
 		})()
 	})))
@@ -277,7 +223,7 @@ func TestDBTaskUpdate(t *testing.T) {
 		})()
 	})))
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
-		expected := GenerateTask(1)
+		expected := utils.entityGenerators.GenerateTask(1)
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 			taskId, err := queries.CreateTask(tx, ctx, TEST_TASK_NAME_2, TEST_TASK_STATE_2)
 
@@ -296,7 +242,7 @@ func TestDBTaskUpdate(t *testing.T) {
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 			actual, err := queries.GetTask(tx, ctx, expected.Id)
 
-			AssertEqualTasks(t, expected, actual)
+			utils.asserts.AssertEqualTasks(t, expected, actual)
 			return err
 		})()
 	})))
@@ -380,8 +326,8 @@ func TestDBTaskDelete(t *testing.T) {
 	})))
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		var expectedTasks []entities.Task
-		expectedTasks = append(expectedTasks, GenerateTask(1))
-		expectedTasks = append(expectedTasks, GenerateTask(3))
+		expectedTasks = append(expectedTasks, utils.entityGenerators.GenerateTask(1))
+		expectedTasks = append(expectedTasks, utils.entityGenerators.GenerateTask(3))
 
 		taskIdToDelete := 2
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
@@ -401,7 +347,7 @@ func TestDBTaskDelete(t *testing.T) {
 			tasks, err := queries.GetTasks(tx, ctx, 50, 0)
 
 			assert.Nil(t, err)
-			AssertEqualTaskArrays(t, expectedTasks, tasks)
+			utils.asserts.AssertEqualTaskArrays(t, expectedTasks, tasks)
 			return err
 		})()
 

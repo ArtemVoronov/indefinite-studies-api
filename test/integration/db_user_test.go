@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strconv"
 	"testing"
 
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db"
@@ -15,81 +14,6 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/queries"
 	"github.com/stretchr/testify/assert"
 )
-
-const (
-	TEST_USER_LOGIN_1    string = "Test user 1"
-	TEST_USER_EMAIL_1    string = "user1@somewhere.com"
-	TEST_USER_PASSWORD_1 string = "16d99c6502225c7e8ee5c85af1070cbcf04724763836ad29edaedab552a54c63d79fb04f62e7a8b4a4b849a6edc558010a67b9b57a949aaf425c6a0dc821fa2d"
-	TEST_USER_ROLE_1     string = entities.USER_ROLE_OWNER
-	TEST_USER_STATE_1    string = entities.USER_STATE_NEW
-	TEST_USER_LOGIN_2    string = "Test user 2"
-	TEST_USER_EMAIL_2    string = "user2@somewhere.com"
-	TEST_USER_PASSWORD_2 string = "17d99c6502225c7e8ee5c85af1070cbcf04724763836ad29edaedab552a54c63d79fb04f62e7a8b4a4b849a6edc558010a67b9b57a949aaf425c6a0dc821fa2d"
-	TEST_USER_ROLE_2     string = entities.USER_ROLE_RESIDENT
-	TEST_USER_STATE_2    string = entities.USER_STATE_BLOCKED
-
-	TEST_USER_LOGIN_TEMPLATE   string = "Test user "
-	TEST_USER_EMAIL_TEMPLATE   string = "user%v@somewhere.com"
-	TEST_USER_PASSORD_TEMPLATE string = "Test password "
-)
-
-func GenerateUserLogin(template string, id int) string {
-	return template + strconv.Itoa(id)
-}
-
-func GenerateUserPassword(template string, id int) string {
-	return template + strconv.Itoa(id)
-}
-
-func GenerateUserEmail(template string, id int) string {
-	return fmt.Sprintf(template, id)
-}
-
-func GenerateUser(id int) entities.User {
-	return entities.User{
-		Id:       id,
-		Login:    GenerateUserLogin(TEST_USER_LOGIN_TEMPLATE, id),
-		Email:    GenerateUserEmail(TEST_USER_EMAIL_TEMPLATE, id),
-		Password: GenerateUserPassword(TEST_USER_PASSORD_TEMPLATE, id),
-		Role:     TEST_USER_ROLE_1,
-		State:    TEST_USER_STATE_1,
-	}
-}
-
-func AssertEqualUsers(t *testing.T, expected entities.User, actual entities.User) {
-	assert.Equal(t, expected.Id, actual.Id)
-	assert.Equal(t, expected.Login, actual.Login)
-	assert.Equal(t, expected.Email, actual.Email)
-	assert.Equal(t, expected.Password, actual.Password)
-	assert.Equal(t, expected.State, actual.State)
-}
-
-func AssertEqualUserArrays(t *testing.T, expected []entities.User, actual []entities.User) {
-	assert.Equal(t, len(expected), len(actual))
-
-	length := len(expected)
-	for i := 0; i < length; i++ {
-		AssertEqualUsers(t, expected[i], actual[i])
-	}
-}
-
-func CreateUserInDB(t *testing.T, tx *sql.Tx, ctx context.Context, login string, email string, password string, role string, state string) (int, error) {
-	userId, err := queries.CreateUser(tx, ctx, login, email, password, role, state)
-	assert.Nil(t, err)
-	assert.NotEqual(t, userId, -1)
-	return userId, err
-}
-
-func CreateUsersInDB(t *testing.T, tx *sql.Tx, ctx context.Context, count int, loginTemplate string, emailTemplate string, passwordTemplate string, role string, state string) error {
-	var lastErr error
-	for i := 1; i <= count; i++ {
-		_, err := CreateUserInDB(t, tx, ctx, GenerateUserLogin(loginTemplate, i), GenerateUserEmail(emailTemplate, i), GenerateUserPassword(passwordTemplate, i), role, state)
-		if err != nil {
-			lastErr = err
-		}
-	}
-	return lastErr
-}
 
 func TestDBUserGet(t *testing.T) {
 	t.Run("NotFoundCase", RunWithRecreateDB((func(t *testing.T) {
@@ -101,7 +25,7 @@ func TestDBUserGet(t *testing.T) {
 		})()
 	})))
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
-		expected := GenerateUser(1)
+		expected := utils.entityGenerators.GenerateUser(1)
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 			userId, err := queries.CreateUser(tx, ctx, expected.Login, expected.Email, expected.Password, expected.Role, expected.State)
 
@@ -113,7 +37,7 @@ func TestDBUserGet(t *testing.T) {
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 			actual, err := queries.GetUser(tx, ctx, expected.Id)
 
-			AssertEqualUsers(t, expected, actual)
+			utils.asserts.AssertEqualUsers(t, expected, actual)
 			return err
 		})()
 	})))
@@ -199,7 +123,7 @@ func TestDBUserGetAll(t *testing.T) {
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		var expectedUsers []entities.User
 		for i := 1; i <= 10; i++ {
-			expectedUsers = append(expectedUsers, GenerateUser(i))
+			expectedUsers = append(expectedUsers, utils.entityGenerators.GenerateUser(i))
 		}
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 			err := CreateUsersInDB(t, tx, ctx, 10, TEST_USER_LOGIN_TEMPLATE, TEST_USER_EMAIL_TEMPLATE, TEST_USER_PASSORD_TEMPLATE, TEST_USER_ROLE_1, TEST_USER_STATE_1)
@@ -210,14 +134,14 @@ func TestDBUserGetAll(t *testing.T) {
 			actualUsers, err := queries.GetUsers(tx, ctx, 50, 0)
 
 			assert.Nil(t, err)
-			AssertEqualUserArrays(t, expectedUsers, actualUsers)
+			utils.asserts.AssertEqualUserArrays(t, expectedUsers, actualUsers)
 			return err
 		})()
 	})))
 	t.Run("LimitParameterCase", RunWithRecreateDB((func(t *testing.T) {
 		var expectedUsers []entities.User
 		for i := 1; i <= 5; i++ {
-			expectedUsers = append(expectedUsers, GenerateUser(i))
+			expectedUsers = append(expectedUsers, utils.entityGenerators.GenerateUser(i))
 		}
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 			err := CreateUsersInDB(t, tx, ctx, 10, TEST_USER_LOGIN_TEMPLATE, TEST_USER_EMAIL_TEMPLATE, TEST_USER_PASSORD_TEMPLATE, TEST_USER_ROLE_1, TEST_USER_STATE_1)
@@ -228,14 +152,14 @@ func TestDBUserGetAll(t *testing.T) {
 			actualUsers, err := queries.GetUsers(tx, ctx, 5, 0)
 
 			assert.Nil(t, err)
-			AssertEqualUserArrays(t, expectedUsers, actualUsers)
+			utils.asserts.AssertEqualUserArrays(t, expectedUsers, actualUsers)
 			return err
 		})()
 	})))
 	t.Run("OffsetParameterCase", RunWithRecreateDB((func(t *testing.T) {
 		var expectedUsers []entities.User
 		for i := 6; i <= 10; i++ {
-			expectedUsers = append(expectedUsers, GenerateUser(i))
+			expectedUsers = append(expectedUsers, utils.entityGenerators.GenerateUser(i))
 		}
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 			err := CreateUsersInDB(t, tx, ctx, 10, TEST_USER_LOGIN_TEMPLATE, TEST_USER_EMAIL_TEMPLATE, TEST_USER_PASSORD_TEMPLATE, TEST_USER_ROLE_1, TEST_USER_STATE_1)
@@ -246,7 +170,7 @@ func TestDBUserGetAll(t *testing.T) {
 			actualUsers, err := queries.GetUsers(tx, ctx, 50, 5)
 
 			assert.Nil(t, err)
-			AssertEqualUserArrays(t, expectedUsers, actualUsers)
+			utils.asserts.AssertEqualUserArrays(t, expectedUsers, actualUsers)
 			return err
 		})()
 	})))
@@ -306,7 +230,7 @@ func TestDBUserUpdate(t *testing.T) {
 		})()
 	})))
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
-		expected := GenerateUser(1)
+		expected := utils.entityGenerators.GenerateUser(1)
 
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 			userId, err := queries.CreateUser(tx, ctx, TEST_USER_LOGIN_2, TEST_USER_EMAIL_2, TEST_USER_PASSWORD_2, TEST_USER_ROLE_2, TEST_USER_STATE_2)
@@ -326,7 +250,7 @@ func TestDBUserUpdate(t *testing.T) {
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 			actual, err := queries.GetUser(tx, ctx, expected.Id)
 
-			AssertEqualUsers(t, expected, actual)
+			utils.asserts.AssertEqualUsers(t, expected, actual)
 			return err
 		})()
 	})))
@@ -412,8 +336,8 @@ func TestDBUserDelete(t *testing.T) {
 	})))
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		var expectedUsers []entities.User
-		expectedUsers = append(expectedUsers, GenerateUser(1))
-		expectedUsers = append(expectedUsers, GenerateUser(3))
+		expectedUsers = append(expectedUsers, utils.entityGenerators.GenerateUser(1))
+		expectedUsers = append(expectedUsers, utils.entityGenerators.GenerateUser(3))
 
 		userIdToDelete := 2
 
@@ -433,7 +357,7 @@ func TestDBUserDelete(t *testing.T) {
 			users, err := queries.GetUsers(tx, ctx, 50, 0)
 
 			assert.Nil(t, err)
-			AssertEqualUserArrays(t, expectedUsers, users)
+			utils.asserts.AssertEqualUserArrays(t, expectedUsers, users)
 			return err
 		})()
 

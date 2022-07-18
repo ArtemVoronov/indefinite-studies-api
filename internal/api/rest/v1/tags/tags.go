@@ -1,4 +1,4 @@
-package tasks
+package tags
 
 import (
 	"context"
@@ -17,45 +17,45 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type TaskDTO struct {
+type TagDTO struct {
 	Id    int
 	Name  string
 	State string
 }
 
-type TaskListDTO struct {
+type TagListDTO struct {
 	Count  int
 	Offset int
 	Limit  int
-	Data   []TaskDTO
+	Data   []TagDTO
 }
 
-type TaskEditDTO struct {
+type TagEditDTO struct {
 	Name  string `json:"name" binding:"required"`
 	State string `json:"state" binding:"required"`
 }
 
-type TaskCreateDTO struct {
+type TagCreateDTO struct {
 	Name  string `json:"name" binding:"required"`
 	State string `json:"state" binding:"required"`
 }
 
-func convertTasks(tasks []entities.Task) []TaskDTO {
-	if tasks == nil {
-		return make([]TaskDTO, 0)
+func convertTags(tags []entities.Tag) []TagDTO {
+	if tags == nil {
+		return make([]TagDTO, 0)
 	}
-	var result []TaskDTO
-	for _, task := range tasks {
-		result = append(result, convertTask(task))
+	var result []TagDTO
+	for _, tag := range tags {
+		result = append(result, convertTag(tag))
 	}
 	return result
 }
 
-func convertTask(task entities.Task) TaskDTO {
-	return TaskDTO{Id: task.Id, Name: task.Name, State: task.State}
+func convertTag(tag entities.Tag) TagDTO {
+	return TagDTO{Id: tag.Id, Name: tag.Name, State: tag.State}
 }
 
-func GetTasks(c *gin.Context) {
+func GetTags(c *gin.Context) {
 	limitStr := c.DefaultQuery("limit", "50")
 	offsetStr := c.DefaultQuery("offset", "0")
 
@@ -70,76 +70,76 @@ func GetTasks(c *gin.Context) {
 	}
 
 	db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
-		tasks, err := queries.GetTasks(tx, ctx, limit, offset)
+		tags, err := queries.GetTags(tx, ctx, limit, offset)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, "Unable to get tasks")
-			log.Printf("Unable to get to tasks : %s", err)
+			c.JSON(http.StatusInternalServerError, "Unable to get tags")
+			log.Printf("Unable to get to tags : %s", err)
 			return err
 		}
-		result := &TaskListDTO{Data: convertTasks(tasks), Count: len(tasks), Offset: offset, Limit: limit}
+		result := &TagListDTO{Data: convertTags(tags), Count: len(tags), Offset: offset, Limit: limit}
 		c.JSON(http.StatusOK, result)
 		return err
 	})()
 }
 
-func GetTask(c *gin.Context) {
-	taskIdStr := c.Param("id")
+func GetTag(c *gin.Context) {
+	tagIdStr := c.Param("id")
 
-	if taskIdStr == "" {
+	if tagIdStr == "" {
 		c.JSON(http.StatusBadRequest, "Missed ID")
 		return
 	}
 
-	var taskId int
+	var tagId int
 	var parseErr error
-	if taskId, parseErr = strconv.Atoi(taskIdStr); parseErr != nil {
+	if tagId, parseErr = strconv.Atoi(tagIdStr); parseErr != nil {
 		c.JSON(http.StatusBadRequest, api.ERROR_ID_WRONG_FORMAT)
 		return
 	}
 
 	db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
-		task, err := queries.GetTask(tx, ctx, taskId)
+		tag, err := queries.GetTag(tx, ctx, tagId)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
 			} else {
-				c.JSON(http.StatusInternalServerError, "Unable to get task")
-				log.Printf("Unable to get to task : %s", err)
+				c.JSON(http.StatusInternalServerError, "Unable to get tag")
+				log.Printf("Unable to get to tag : %s", err)
 			}
 			return err
 		}
-		c.JSON(http.StatusOK, convertTask(task))
+		c.JSON(http.StatusOK, convertTag(tag))
 		return err
 	})()
 }
 
-func CreateTask(c *gin.Context) {
-	var task TaskCreateDTO
+func CreateTag(c *gin.Context) {
+	var tag TagCreateDTO
 
-	if err := c.ShouldBindJSON(&task); err != nil {
+	if err := c.ShouldBindJSON(&tag); err != nil {
 		validation.ProcessAndSendValidationErrorMessage(c, err)
 		return
 	}
 
-	possibleTaskStates := entities.GetPossibleTaskStates()
-	if !utils.Contains(possibleTaskStates, task.State) {
-		c.JSON(http.StatusBadRequest, fmt.Sprintf("Unable to create task. Wrong 'State' value. Possible values: %v", possibleTaskStates))
+	possibleTagStates := entities.GetPossibleTagStates()
+	if !utils.Contains(possibleTagStates, tag.State) {
+		c.JSON(http.StatusBadRequest, fmt.Sprintf("Unable to create tag. Wrong 'State' value. Possible values: %v", possibleTagStates))
 		return
 	}
 
-	if task.State == entities.TASK_STATE_DELETED {
+	if tag.State == entities.TAG_STATE_DELETED {
 		c.JSON(http.StatusBadRequest, api.DELETE_VIA_POST_REQUEST_IS_FODBIDDEN)
 		return
 	}
 
 	db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
-		result, err := queries.CreateTask(tx, ctx, task.Name, task.State)
+		result, err := queries.CreateTag(tx, ctx, tag.Name, tag.State)
 		if err != nil || result == -1 {
-			if err.Error() == db.ErrorTaskDuplicateKey.Error() {
+			if err.Error() == db.ErrorTagDuplicateKey.Error() {
 				c.JSON(http.StatusBadRequest, api.DUPLICATE_FOUND)
 			} else {
-				c.JSON(http.StatusInternalServerError, "Unable to create task")
-				log.Printf("Unable to create task : %s", err)
+				c.JSON(http.StatusInternalServerError, "Unable to create tag")
+				log.Printf("Unable to create tag : %s", err)
 			}
 			return err
 
@@ -149,50 +149,50 @@ func CreateTask(c *gin.Context) {
 	})()
 }
 
-func UpdateTask(c *gin.Context) {
-	taskIdStr := c.Param("id")
+func UpdateTag(c *gin.Context) {
+	tagIdStr := c.Param("id")
 
-	if taskIdStr == "" {
+	if tagIdStr == "" {
 		c.JSON(http.StatusBadRequest, "Missed ID")
 		return
 	}
 
-	var taskId int
+	var tagId int
 	var parseErr error
-	if taskId, parseErr = strconv.Atoi(taskIdStr); parseErr != nil {
+	if tagId, parseErr = strconv.Atoi(tagIdStr); parseErr != nil {
 		c.JSON(http.StatusBadRequest, api.ERROR_ID_WRONG_FORMAT)
 		return
 	}
 
-	var task TaskEditDTO
+	var tag TagEditDTO
 
-	if err := c.ShouldBindJSON(&task); err != nil {
+	if err := c.ShouldBindJSON(&tag); err != nil {
 		validation.ProcessAndSendValidationErrorMessage(c, err)
 		return
 	}
 
-	if task.State == entities.TASK_STATE_DELETED {
+	if tag.State == entities.TAG_STATE_DELETED {
 		c.JSON(http.StatusBadRequest, api.DELETE_VIA_PUT_REQUEST_IS_FODBIDDEN)
 		return
 	}
 
-	possibleTaskStates := entities.GetPossibleTaskStates()
-	if !utils.Contains(possibleTaskStates, task.State) {
-		c.JSON(http.StatusBadRequest, fmt.Sprintf("Unable to update task. Wrong 'State' value. Possible values: %v", possibleTaskStates))
+	possibleTagStates := entities.GetPossibleTagStates()
+	if !utils.Contains(possibleTagStates, tag.State) {
+		c.JSON(http.StatusBadRequest, fmt.Sprintf("Unable to update tag. Wrong 'State' value. Possible values: %v", possibleTagStates))
 		return
 	}
 
 	db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
-		err := queries.UpdateTask(tx, ctx, taskId, task.Name, task.State)
+		err := queries.UpdateTag(tx, ctx, tagId, tag.Name, tag.State)
 
 		if err != nil {
 			if err == sql.ErrNoRows {
 				c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
-			} else if err.Error() == db.ErrorTaskDuplicateKey.Error() {
+			} else if err.Error() == db.ErrorTagDuplicateKey.Error() {
 				c.JSON(http.StatusBadRequest, api.DUPLICATE_FOUND)
 			} else {
-				c.JSON(http.StatusInternalServerError, "Unable to update task")
-				log.Printf("Unable to update task : %s", err)
+				c.JSON(http.StatusInternalServerError, "Unable to update tag")
+				log.Printf("Unable to update tag : %s", err)
 			}
 			return err
 		}
@@ -201,7 +201,7 @@ func UpdateTask(c *gin.Context) {
 	})()
 }
 
-func DeleteTask(c *gin.Context) {
+func DeleteTag(c *gin.Context) {
 	idStr := c.Param("id")
 
 	if idStr == "" {
@@ -217,14 +217,14 @@ func DeleteTask(c *gin.Context) {
 	}
 
 	db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
-		err := queries.DeleteTask(tx, ctx, id)
+		err := queries.DeleteTag(tx, ctx, id)
 
 		if err != nil {
 			if err == sql.ErrNoRows {
 				c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
 			} else {
-				c.JSON(http.StatusInternalServerError, "Unable to delete task")
-				log.Printf("Unable to delete task: %s", err)
+				c.JSON(http.StatusInternalServerError, "Unable to delete tag")
+				log.Printf("Unable to delete tag: %s", err)
 			}
 			return err
 		}

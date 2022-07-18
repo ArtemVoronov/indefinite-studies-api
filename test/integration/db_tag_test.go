@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strconv"
 	"testing"
 
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db"
@@ -15,59 +14,6 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/queries"
 	"github.com/stretchr/testify/assert"
 )
-
-const (
-	TEST_TAG_NAME_1        string = "Test tag 1"
-	TEST_TAG_STATE_1       string = entities.TAG_STATE_NEW
-	TEST_TAG_NAME_2        string = "Test tag 2"
-	TEST_TAG_STATE_2       string = entities.TAG_STATE_BLOCKED
-	TEST_TAG_NAME_TEMPLATE string = "Test tag "
-)
-
-func GenerateTag(id int) entities.Tag {
-	return entities.Tag{
-		Id:    id,
-		Name:  GenerateTagName(TEST_TAG_NAME_TEMPLATE, id),
-		State: TEST_TAG_STATE_1,
-	}
-}
-
-func GenerateTagName(template string, id int) string {
-	return template + strconv.Itoa(id)
-}
-
-func AssertEqualTags(t *testing.T, expected entities.Tag, actual entities.Tag) {
-	assert.Equal(t, expected.Id, actual.Id)
-	assert.Equal(t, expected.Name, actual.Name)
-	assert.Equal(t, expected.State, actual.State)
-}
-
-func AssertEqualTagArrays(t *testing.T, expected []entities.Tag, actual []entities.Tag) {
-	assert.Equal(t, len(expected), len(actual))
-
-	length := len(expected)
-	for i := 0; i < length; i++ {
-		AssertEqualTags(t, expected[i], actual[i])
-	}
-}
-
-func CreateTagInDB(t *testing.T, tx *sql.Tx, ctx context.Context, name string, state string) (int, error) {
-	tagId, err := queries.CreateTag(tx, ctx, name, state)
-	assert.Nil(t, err)
-	assert.NotEqual(t, tagId, -1)
-	return tagId, err
-}
-
-func CreateTagsInDB(t *testing.T, tx *sql.Tx, ctx context.Context, count int, nameTemplate string, state string) error {
-	var lastErr error
-	for i := 1; i <= count; i++ {
-		_, err := CreateTagInDB(t, tx, ctx, GenerateTagName(TEST_TAG_NAME_TEMPLATE, i), state)
-		if err != nil {
-			lastErr = err
-		}
-	}
-	return lastErr
-}
 
 func TestDBTagGet(t *testing.T) {
 	t.Run("NotFoundCase", RunWithRecreateDB((func(t *testing.T) {
@@ -79,7 +25,7 @@ func TestDBTagGet(t *testing.T) {
 		})()
 	})))
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
-		expected := GenerateTag(1)
+		expected := utils.entityGenerators.GenerateTag(1)
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 			tagId, err := queries.CreateTag(tx, ctx, expected.Name, expected.State)
 			assert.Nil(t, err)
@@ -88,7 +34,7 @@ func TestDBTagGet(t *testing.T) {
 		})()
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 			actual, err := queries.GetTag(tx, ctx, expected.Id)
-			AssertEqualTags(t, expected, actual)
+			utils.asserts.AssertEqualTags(t, expected, actual)
 			return err
 		})()
 	})))
@@ -175,7 +121,7 @@ func TestDBTagGetAll(t *testing.T) {
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		var expectedTags []entities.Tag
 		for i := 1; i <= 10; i++ {
-			expectedTags = append(expectedTags, GenerateTag(i))
+			expectedTags = append(expectedTags, utils.entityGenerators.GenerateTag(i))
 		}
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 			err := CreateTagsInDB(t, tx, ctx, 10, TEST_TAG_NAME_TEMPLATE, entities.TAG_STATE_NEW)
@@ -185,14 +131,14 @@ func TestDBTagGetAll(t *testing.T) {
 			actualTags, err := queries.GetTags(tx, ctx, 50, 0)
 
 			assert.Nil(t, err)
-			AssertEqualTagArrays(t, expectedTags, actualTags)
+			utils.asserts.AssertEqualTagArrays(t, expectedTags, actualTags)
 			return err
 		})()
 	})))
 	t.Run("LimitParameterCase", RunWithRecreateDB((func(t *testing.T) {
 		var expectedTags []entities.Tag
 		for i := 1; i <= 5; i++ {
-			expectedTags = append(expectedTags, GenerateTag(i))
+			expectedTags = append(expectedTags, utils.entityGenerators.GenerateTag(i))
 		}
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 			err := CreateTagsInDB(t, tx, ctx, 10, TEST_TAG_NAME_TEMPLATE, entities.TAG_STATE_NEW)
@@ -202,14 +148,14 @@ func TestDBTagGetAll(t *testing.T) {
 			actualTags, err := queries.GetTags(tx, ctx, 5, 0)
 
 			assert.Nil(t, err)
-			AssertEqualTagArrays(t, expectedTags, actualTags)
+			utils.asserts.AssertEqualTagArrays(t, expectedTags, actualTags)
 			return err
 		})()
 	})))
 	t.Run("OffsetParameterCase", RunWithRecreateDB((func(t *testing.T) {
 		var expectedTags []entities.Tag
 		for i := 6; i <= 10; i++ {
-			expectedTags = append(expectedTags, GenerateTag(i))
+			expectedTags = append(expectedTags, utils.entityGenerators.GenerateTag(i))
 		}
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 			err := CreateTagsInDB(t, tx, ctx, 10, TEST_TAG_NAME_TEMPLATE, entities.TAG_STATE_NEW)
@@ -219,7 +165,7 @@ func TestDBTagGetAll(t *testing.T) {
 			actualTags, err := queries.GetTags(tx, ctx, 50, 5)
 
 			assert.Nil(t, err)
-			AssertEqualTagArrays(t, expectedTags, actualTags)
+			utils.asserts.AssertEqualTagArrays(t, expectedTags, actualTags)
 			return err
 		})()
 	})))
@@ -277,7 +223,7 @@ func TestDBTagUpdate(t *testing.T) {
 		})()
 	})))
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
-		expected := GenerateTag(1)
+		expected := utils.entityGenerators.GenerateTag(1)
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 			tagId, err := queries.CreateTag(tx, ctx, TEST_TAG_NAME_2, TEST_TAG_STATE_2)
 
@@ -296,7 +242,7 @@ func TestDBTagUpdate(t *testing.T) {
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 			actual, err := queries.GetTag(tx, ctx, expected.Id)
 
-			AssertEqualTags(t, expected, actual)
+			utils.asserts.AssertEqualTags(t, expected, actual)
 			return err
 		})()
 	})))
@@ -380,8 +326,8 @@ func TestDBTagDelete(t *testing.T) {
 	})))
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		var expectedTags []entities.Tag
-		expectedTags = append(expectedTags, GenerateTag(1))
-		expectedTags = append(expectedTags, GenerateTag(3))
+		expectedTags = append(expectedTags, utils.entityGenerators.GenerateTag(1))
+		expectedTags = append(expectedTags, utils.entityGenerators.GenerateTag(3))
 
 		tagIdToDelete := 2
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
@@ -401,7 +347,7 @@ func TestDBTagDelete(t *testing.T) {
 			tags, err := queries.GetTags(tx, ctx, 50, 0)
 
 			assert.Nil(t, err)
-			AssertEqualTagArrays(t, expectedTags, tags)
+			utils.asserts.AssertEqualTagArrays(t, expectedTags, tags)
 			return err
 		})()
 
