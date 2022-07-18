@@ -30,12 +30,12 @@ const (
 
 	TEST_USER_LOGIN_1    string = "Test user 1"
 	TEST_USER_EMAIL_1    string = "user1@somewhere.com"
-	TEST_USER_PASSWORD_1 string = "16d99c6502225c7e8ee5c85af1070cbcf04724763836ad29edaedab552a54c63d79fb04f62e7a8b4a4b849a6edc558010a67b9b57a949aaf425c6a0dc821fa2d"
+	TEST_USER_PASSWORD_1 string = "Test password1 "
 	TEST_USER_ROLE_1     string = entities.USER_ROLE_OWNER
 	TEST_USER_STATE_1    string = entities.USER_STATE_NEW
 	TEST_USER_LOGIN_2    string = "Test user 2"
 	TEST_USER_EMAIL_2    string = "user2@somewhere.com"
-	TEST_USER_PASSWORD_2 string = "17d99c6502225c7e8ee5c85af1070cbcf04724763836ad29edaedab552a54c63d79fb04f62e7a8b4a4b849a6edc558010a67b9b57a949aaf425c6a0dc821fa2d"
+	TEST_USER_PASSWORD_2 string = "Tes tpassword 2"
 	TEST_USER_ROLE_2     string = entities.USER_ROLE_RESIDENT
 	TEST_USER_STATE_2    string = entities.USER_STATE_BLOCKED
 

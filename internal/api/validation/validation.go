@@ -18,6 +18,8 @@ func GetValidationMessageForTag(tag string) string {
 	switch tag {
 	case "required":
 		return "This field is required"
+	case "email":
+		return "Wrong email format"
 	case "alphaunicode":
 		return "This field should contain unicode alpha characters only"
 	case "alpha":

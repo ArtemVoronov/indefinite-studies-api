@@ -34,7 +34,7 @@ type UserListDTO struct {
 
 type UserEditDTO struct {
 	Login    string `json:"login" binding:"required"`
-	Email    string `json:"email" binding:"required"`
+	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required"`
 	Role     string `json:"role" binding:"required"`
 	State    string `json:"state" binding:"required"`
@@ -42,7 +42,7 @@ type UserEditDTO struct {
 
 type UserCreateDTO struct {
 	Login    string `json:"login" binding:"required"`
-	Email    string `json:"email" binding:"required"`
+	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required"`
 	Role     string `json:"role" binding:"required"`
 	State    string `json:"state" binding:"required"`
@@ -116,7 +116,7 @@ func GetUser(c *gin.Context) {
 			}
 			return err
 		}
-		c.JSON(http.StatusOK, user)
+		c.JSON(http.StatusOK, convertUser(user))
 		return err
 	})()
 }
@@ -126,6 +126,12 @@ func CreateUser(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&user); err != nil {
 		validation.ProcessAndSendValidationErrorMessage(c, err)
+		return
+	}
+
+	possibleUserRoles := entities.GetPossibleUserRoles()
+	if !utils.Contains(possibleUserRoles, user.Role) {
+		c.JSON(http.StatusBadRequest, fmt.Sprintf("Unable to create user. Wrong 'Role' value. Possible values: %v", possibleUserRoles))
 		return
 	}
 
@@ -157,6 +163,7 @@ func CreateUser(c *gin.Context) {
 	})()
 }
 
+// TODO: add optional field updating (field is not reqired and missed -> do not update it)
 func UpdateUser(c *gin.Context) {
 	userIdStr := c.Param("id")
 
@@ -181,6 +188,12 @@ func UpdateUser(c *gin.Context) {
 
 	if user.State == entities.TASK_STATE_DELETED {
 		c.JSON(http.StatusBadRequest, api.DELETE_VIA_PUT_REQUEST_IS_FODBIDDEN)
+		return
+	}
+
+	possibleUserRoles := entities.GetPossibleUserRoles()
+	if !utils.Contains(possibleUserRoles, user.Role) {
+		c.JSON(http.StatusBadRequest, fmt.Sprintf("Unable to update user. Wrong 'Role' value. Possible values: %v", possibleUserRoles))
 		return
 	}
 

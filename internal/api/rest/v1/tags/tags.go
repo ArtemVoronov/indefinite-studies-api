@@ -108,7 +108,7 @@ func GetTag(c *gin.Context) {
 			}
 			return err
 		}
-		c.JSON(http.StatusOK, tag)
+		c.JSON(http.StatusOK, convertTag(tag))
 		return err
 	})()
 }

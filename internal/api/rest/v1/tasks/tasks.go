@@ -108,7 +108,7 @@ func GetTask(c *gin.Context) {
 			}
 			return err
 		}
-		c.JSON(http.StatusOK, task)
+		c.JSON(http.StatusOK, convertTask(task))
 		return err
 	})()
 }

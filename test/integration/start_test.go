@@ -14,6 +14,7 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/ping"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/tags"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/tasks"
+	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/users"
 
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db"
 	"github.com/gin-gonic/gin"
@@ -53,6 +54,12 @@ func SetupRouter() *gin.Engine {
 	r.POST("/tags", tags.CreateTag)
 	r.PUT("/tags/:id", tags.UpdateTag)
 	r.DELETE("/tags/:id", tags.DeleteTag)
+
+	r.GET("/users", users.GetUsers)
+	r.GET("/users/:id", users.GetUser)
+	r.POST("/users", users.CreateUser)
+	r.PUT("/users/:id", users.UpdateUser)
+	r.DELETE("/users/:id", users.DeleteUser)
 
 	return r
 }

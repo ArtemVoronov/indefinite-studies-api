@@ -9,6 +9,7 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/ping"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/tags"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/tasks"
+	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/users"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/app"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db"
 	"github.com/gin-gonic/gin"
@@ -56,6 +57,12 @@ func main() {
 		v1.POST("/tags", tags.CreateTag)
 		v1.PUT("/tags/:id", tags.UpdateTag)
 		v1.DELETE("/tags/:id", tags.DeleteTag)
+
+		v1.GET("/users", users.GetUsers)
+		v1.GET("/users/:id", users.GetUser)
+		v1.POST("/users", users.CreateUser)
+		v1.PUT("/users/:id", users.UpdateUser)
+		v1.DELETE("/users/:id", users.DeleteUser)
 	}
 
 	app.StartServer(host, router)

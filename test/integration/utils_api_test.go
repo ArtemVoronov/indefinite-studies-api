@@ -305,15 +305,16 @@ func CreateTaskPutOrPostBody(name any, state any) (string, error) {
 	}
 
 	taskCreateDTO := "{"
-	if nameField != "" && stateField != "" {
-		taskCreateDTO += nameField + ", " + stateField
-	} else if nameField != "" {
-		taskCreateDTO += nameField
-	} else if stateField != "" {
-		taskCreateDTO += stateField
+	if nameField != "" {
+		taskCreateDTO += nameField + ","
+	}
+	if stateField != "" {
+		taskCreateDTO += stateField + ","
+	}
+	if len(taskCreateDTO) != 1 {
+		taskCreateDTO = taskCreateDTO[:len(taskCreateDTO)-1]
 	}
 	taskCreateDTO += "}"
-
 	return taskCreateDTO, nil
 }
 
@@ -328,15 +329,16 @@ func CreateTagPutOrPostBody(name any, state any) (string, error) {
 	}
 
 	tagCreateDTO := "{"
-	if nameField != "" && stateField != "" {
-		tagCreateDTO += nameField + ", " + stateField
-	} else if nameField != "" {
-		tagCreateDTO += nameField
-	} else if stateField != "" {
-		tagCreateDTO += stateField
+	if nameField != "" {
+		tagCreateDTO += nameField + ","
+	}
+	if stateField != "" {
+		tagCreateDTO += stateField + ","
+	}
+	if len(tagCreateDTO) != 1 {
+		tagCreateDTO = tagCreateDTO[:len(tagCreateDTO)-1]
 	}
 	tagCreateDTO += "}"
-
 	return tagCreateDTO, nil
 }
 
@@ -363,20 +365,24 @@ func CreateUserPutOrPostBody(login any, email any, password any, role any, state
 	}
 
 	userCreateDTO := "{"
-	if loginField != "" && emailField != "" && passwordField != "" && roleField != "" && stateField != "" {
-		userCreateDTO += loginField + ", " + emailField + ", " + passwordField + ", " + roleField + ", " + stateField
-	} else if loginField != "" {
-		userCreateDTO += loginField
-	} else if emailField != "" {
-		userCreateDTO += emailField
-	} else if passwordField != "" {
-		userCreateDTO += passwordField
-	} else if roleField != "" {
-		userCreateDTO += roleField
-	} else if stateField != "" {
-		userCreateDTO += stateField
+	if loginField != "" {
+		userCreateDTO += loginField + ","
+	}
+	if emailField != "" {
+		userCreateDTO += emailField + ","
+	}
+	if passwordField != "" {
+		userCreateDTO += passwordField + ","
+	}
+	if roleField != "" {
+		userCreateDTO += roleField + ","
+	}
+	if stateField != "" {
+		userCreateDTO += stateField + ","
+	}
+	if len(userCreateDTO) != 1 {
+		userCreateDTO = userCreateDTO[:len(userCreateDTO)-1]
 	}
 	userCreateDTO += "}"
-
 	return userCreateDTO, nil
 }
