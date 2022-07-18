@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/ArtemVoronov/indefinite-studies-api/internal/api"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 )
@@ -40,5 +41,5 @@ func ProcessAndSendValidationErrorMessage(c *gin.Context, err error) {
 		return
 	}
 
-	c.JSON(http.StatusBadRequest, "Error during parsing of HTTP request body. Please check it format correctness: missed brackets, double quotes, commas, matching of names and data types and etc")
+	c.JSON(http.StatusBadRequest, api.ERROR_MESSAGE_PARSING_BODY_JSON)
 }

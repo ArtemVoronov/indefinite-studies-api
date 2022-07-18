@@ -7,6 +7,7 @@ import (
 	"github.com/gin-contrib/expvar"
 
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/ping"
+	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/tags"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/tasks"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/app"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db"
@@ -49,6 +50,12 @@ func main() {
 		v1.POST("/tasks/", tasks.CreateTask)
 		v1.PUT("/tasks/:id", tasks.UpdateTask)
 		v1.DELETE("/tasks/:id", tasks.DeleteTask)
+
+		v1.GET("/tags", tags.GetTags)
+		v1.GET("/tags/:id", tags.GetTag)
+		v1.POST("/tags", tags.CreateTag)
+		v1.PUT("/tags/:id", tags.UpdateTag)
+		v1.DELETE("/tags/:id", tags.DeleteTag)
 	}
 
 	app.StartServer(host, router)

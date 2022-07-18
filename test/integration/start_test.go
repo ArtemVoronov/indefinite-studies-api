@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/ping"
+	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/tags"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/tasks"
 
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db"
@@ -39,6 +40,12 @@ func SetupRouter() *gin.Engine {
 	r.POST("/tasks", tasks.CreateTask)
 	r.PUT("/tasks/:id", tasks.UpdateTask)
 	r.DELETE("/tasks/:id", tasks.DeleteTask)
+
+	r.GET("/tags", tags.GetTags)
+	r.GET("/tags/:id", tags.GetTag)
+	r.POST("/tags", tags.CreateTag)
+	r.PUT("/tags/:id", tags.UpdateTag)
+	r.DELETE("/tags/:id", tags.DeleteTag)
 
 	return r
 }
