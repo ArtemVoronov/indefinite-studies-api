@@ -31,30 +31,14 @@ var (
 	ERROR_TASK_UPDATE_STATE_WRONG_VALUE string = fmt.Sprintf("Unable to update task. Wrong 'State' value. Possible values: %v", entities.GetPossibleTaskStates())
 )
 
-func CreateTask(name any, state any) (int, string, error) {
-	nameField := ""
-	stateField := ""
-
-	switch nameType := name.(type) {
-	case int:
-		nameField = "\"Name\": " + strconv.Itoa(name.(int))
-	case string:
-		nameField = "\"Name\": \"" + name.(string) + "\""
-	case nil:
-		nameField = ""
-	default:
-		return -1, "", fmt.Errorf("unkown type for 'name': %v", nameType)
+func CreateTaskPutOrPostBody(name any, state any) (string, error) {
+	nameField, err := ParseForJsonBody("Name", name)
+	if err != nil {
+		return "", err
 	}
-
-	switch stateType := state.(type) {
-	case int:
-		stateField = "\"State\": " + strconv.Itoa(state.(int))
-	case string:
-		stateField = "\"State\": \"" + state.(string) + "\""
-	case nil:
-		stateField = ""
-	default:
-		return -1, "", fmt.Errorf("unkown type for 'state': %v", stateType)
+	stateField, err := ParseForJsonBody("State", state)
+	if err != nil {
+		return "", err
 	}
 
 	taskCreateDTO := "{"
@@ -66,6 +50,15 @@ func CreateTask(name any, state any) (int, string, error) {
 		taskCreateDTO += stateField
 	}
 	taskCreateDTO += "}"
+
+	return taskCreateDTO, nil
+}
+
+func CreateTask(name any, state any) (int, string, error) {
+	taskCreateDTO, err := CreateTaskPutOrPostBody(name, state)
+	if err != nil {
+		return -1, "", err
+	}
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest(http.MethodPost, "/tasks", bytes.NewBuffer([]byte(taskCreateDTO)))
@@ -82,34 +75,9 @@ func GetTask(id string) (int, string) {
 }
 
 func GetTasks(limit any, offset any) (int, string, error) {
-	limitQueryParam := ""
-	offsetQueryParam := ""
-
-	switch limitType := limit.(type) {
-	case int:
-		limitQueryParam = "limit=" + strconv.Itoa(limit.(int))
-	case nil:
-		limitQueryParam = ""
-	default:
-		return -1, "", fmt.Errorf("unkown type for 'limit': %v", limitType)
-	}
-
-	switch offsetType := offset.(type) {
-	case int:
-		offsetQueryParam = "offset=" + strconv.Itoa(offset.(int))
-	case nil:
-		offsetQueryParam = ""
-	default:
-		return -1, "", fmt.Errorf("unkown type for 'offset': %v", offsetType)
-	}
-
-	queryParams := ""
-	if limitQueryParam != "" && offsetQueryParam != "" {
-		queryParams += "?" + limitQueryParam + "&" + offsetQueryParam
-	} else if limitQueryParam != "" {
-		queryParams += "?" + limitQueryParam
-	} else if offsetQueryParam != "" {
-		queryParams += "?" + offsetQueryParam
+	queryParams, err := CreateLimitAndOffsetQueryParams(limit, offset)
+	if err != nil {
+		return -1, "", err
 	}
 
 	w := httptest.NewRecorder()
@@ -119,52 +87,14 @@ func GetTasks(limit any, offset any) (int, string, error) {
 }
 
 func UpdateTask(id any, name any, state any) (int, string, error) {
-	idParam := ""
-	nameField := ""
-	stateField := ""
-
-	switch idType := id.(type) {
-	case int:
-		idParam = "/" + strconv.Itoa(id.(int))
-	case string:
-		idParam = "/" + id.(string)
-	case nil:
-		idParam = ""
-	default:
-		return -1, "", fmt.Errorf("unkown type for 'id': %v", idType)
+	idParam, err := ParseForPathParam("id", id)
+	if err != nil {
+		return -1, "", err
 	}
-
-	switch nameType := name.(type) {
-	case int:
-		nameField = "\"Name\": " + strconv.Itoa(name.(int))
-	case string:
-		nameField = "\"Name\": \"" + name.(string) + "\""
-	case nil:
-		nameField = ""
-	default:
-		return -1, "", fmt.Errorf("unkown type for 'name': %v", nameType)
+	taskUpdateDTO, err := CreateTaskPutOrPostBody(name, state)
+	if err != nil {
+		return -1, "", err
 	}
-
-	switch stateType := state.(type) {
-	case int:
-		stateField = "\"State\": " + strconv.Itoa(state.(int))
-	case string:
-		stateField = "\"State\": \"" + state.(string) + "\""
-	case nil:
-		stateField = ""
-	default:
-		return -1, "", fmt.Errorf("unkown type for 'state': %v", stateType)
-	}
-
-	taskUpdateDTO := "{"
-	if nameField != "" && stateField != "" {
-		taskUpdateDTO += nameField + ", " + stateField
-	} else if nameField != "" {
-		taskUpdateDTO += nameField
-	} else if stateField != "" {
-		taskUpdateDTO += stateField
-	}
-	taskUpdateDTO += "}"
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest(http.MethodPut, "/tasks"+idParam, bytes.NewBuffer([]byte(taskUpdateDTO)))
@@ -174,17 +104,9 @@ func UpdateTask(id any, name any, state any) (int, string, error) {
 }
 
 func DeleteTask(id any) (int, string, error) {
-	idParam := ""
-
-	switch idType := id.(type) {
-	case int:
-		idParam = "/" + strconv.Itoa(id.(int))
-	case string:
-		idParam = "/" + id.(string)
-	case nil:
-		idParam = ""
-	default:
-		return -1, "", fmt.Errorf("unkown type for 'id': %v", idType)
+	idParam, err := ParseForPathParam("id", id)
+	if err != nil {
+		return -1, "", err
 	}
 
 	w := httptest.NewRecorder()

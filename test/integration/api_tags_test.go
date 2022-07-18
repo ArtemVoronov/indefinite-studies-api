@@ -31,30 +31,14 @@ var (
 	ERROR_TAG_UPDATE_STATE_WRONG_VALUE string = fmt.Sprintf("Unable to update tag. Wrong 'State' value. Possible values: %v", entities.GetPossibleTagStates())
 )
 
-func CreateTag(name any, state any) (int, string, error) {
-	nameField := ""
-	stateField := ""
-
-	switch nameType := name.(type) {
-	case int:
-		nameField = "\"Name\": " + strconv.Itoa(name.(int))
-	case string:
-		nameField = "\"Name\": \"" + name.(string) + "\""
-	case nil:
-		nameField = ""
-	default:
-		return -1, "", fmt.Errorf("unkown type for 'name': %v", nameType)
+func CreateTagPutOrPostBody(name any, state any) (string, error) {
+	nameField, err := ParseForJsonBody("Name", name)
+	if err != nil {
+		return "", err
 	}
-
-	switch stateType := state.(type) {
-	case int:
-		stateField = "\"State\": " + strconv.Itoa(state.(int))
-	case string:
-		stateField = "\"State\": \"" + state.(string) + "\""
-	case nil:
-		stateField = ""
-	default:
-		return -1, "", fmt.Errorf("unkown type for 'state': %v", stateType)
+	stateField, err := ParseForJsonBody("State", state)
+	if err != nil {
+		return "", err
 	}
 
 	tagCreateDTO := "{"
@@ -66,6 +50,15 @@ func CreateTag(name any, state any) (int, string, error) {
 		tagCreateDTO += stateField
 	}
 	tagCreateDTO += "}"
+
+	return tagCreateDTO, nil
+}
+
+func CreateTag(name any, state any) (int, string, error) {
+	tagCreateDTO, err := CreateTagPutOrPostBody(name, state)
+	if err != nil {
+		return -1, "", err
+	}
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest(http.MethodPost, "/tags", bytes.NewBuffer([]byte(tagCreateDTO)))
@@ -82,34 +75,9 @@ func GetTag(id string) (int, string) {
 }
 
 func GetTags(limit any, offset any) (int, string, error) {
-	limitQueryParam := ""
-	offsetQueryParam := ""
-
-	switch limitType := limit.(type) {
-	case int:
-		limitQueryParam = "limit=" + strconv.Itoa(limit.(int))
-	case nil:
-		limitQueryParam = ""
-	default:
-		return -1, "", fmt.Errorf("unkown type for 'limit': %v", limitType)
-	}
-
-	switch offsetType := offset.(type) {
-	case int:
-		offsetQueryParam = "offset=" + strconv.Itoa(offset.(int))
-	case nil:
-		offsetQueryParam = ""
-	default:
-		return -1, "", fmt.Errorf("unkown type for 'offset': %v", offsetType)
-	}
-
-	queryParams := ""
-	if limitQueryParam != "" && offsetQueryParam != "" {
-		queryParams += "?" + limitQueryParam + "&" + offsetQueryParam
-	} else if limitQueryParam != "" {
-		queryParams += "?" + limitQueryParam
-	} else if offsetQueryParam != "" {
-		queryParams += "?" + offsetQueryParam
+	queryParams, err := CreateLimitAndOffsetQueryParams(limit, offset)
+	if err != nil {
+		return -1, "", err
 	}
 
 	w := httptest.NewRecorder()
@@ -119,52 +87,14 @@ func GetTags(limit any, offset any) (int, string, error) {
 }
 
 func UpdateTag(id any, name any, state any) (int, string, error) {
-	idParam := ""
-	nameField := ""
-	stateField := ""
-
-	switch idType := id.(type) {
-	case int:
-		idParam = "/" + strconv.Itoa(id.(int))
-	case string:
-		idParam = "/" + id.(string)
-	case nil:
-		idParam = ""
-	default:
-		return -1, "", fmt.Errorf("unkown type for 'id': %v", idType)
+	idParam, err := ParseForPathParam("id", id)
+	if err != nil {
+		return -1, "", err
 	}
-
-	switch nameType := name.(type) {
-	case int:
-		nameField = "\"Name\": " + strconv.Itoa(name.(int))
-	case string:
-		nameField = "\"Name\": \"" + name.(string) + "\""
-	case nil:
-		nameField = ""
-	default:
-		return -1, "", fmt.Errorf("unkown type for 'name': %v", nameType)
+	tagUpdateDTO, err := CreateTagPutOrPostBody(name, state)
+	if err != nil {
+		return -1, "", err
 	}
-
-	switch stateType := state.(type) {
-	case int:
-		stateField = "\"State\": " + strconv.Itoa(state.(int))
-	case string:
-		stateField = "\"State\": \"" + state.(string) + "\""
-	case nil:
-		stateField = ""
-	default:
-		return -1, "", fmt.Errorf("unkown type for 'state': %v", stateType)
-	}
-
-	tagUpdateDTO := "{"
-	if nameField != "" && stateField != "" {
-		tagUpdateDTO += nameField + ", " + stateField
-	} else if nameField != "" {
-		tagUpdateDTO += nameField
-	} else if stateField != "" {
-		tagUpdateDTO += stateField
-	}
-	tagUpdateDTO += "}"
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest(http.MethodPut, "/tags"+idParam, bytes.NewBuffer([]byte(tagUpdateDTO)))
@@ -174,17 +104,9 @@ func UpdateTag(id any, name any, state any) (int, string, error) {
 }
 
 func DeleteTag(id any) (int, string, error) {
-	idParam := ""
-
-	switch idType := id.(type) {
-	case int:
-		idParam = "/" + strconv.Itoa(id.(int))
-	case string:
-		idParam = "/" + id.(string)
-	case nil:
-		idParam = ""
-	default:
-		return -1, "", fmt.Errorf("unkown type for 'id': %v", idType)
+	idParam, err := ParseForPathParam("id", id)
+	if err != nil {
+		return -1, "", err
 	}
 
 	w := httptest.NewRecorder()
