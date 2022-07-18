@@ -4,10 +4,8 @@
 package integration
 
 import (
-	"bytes"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"strconv"
 	"testing"
 
@@ -31,93 +29,9 @@ var (
 	ERROR_TAG_UPDATE_STATE_WRONG_VALUE string = fmt.Sprintf("Unable to update tag. Wrong 'State' value. Possible values: %v", entities.GetPossibleTagStates())
 )
 
-func CreateTagPutOrPostBody(name any, state any) (string, error) {
-	nameField, err := ParseForJsonBody("Name", name)
-	if err != nil {
-		return "", err
-	}
-	stateField, err := ParseForJsonBody("State", state)
-	if err != nil {
-		return "", err
-	}
-
-	tagCreateDTO := "{"
-	if nameField != "" && stateField != "" {
-		tagCreateDTO += nameField + ", " + stateField
-	} else if nameField != "" {
-		tagCreateDTO += nameField
-	} else if stateField != "" {
-		tagCreateDTO += stateField
-	}
-	tagCreateDTO += "}"
-
-	return tagCreateDTO, nil
-}
-
-func CreateTag(name any, state any) (int, string, error) {
-	tagCreateDTO, err := CreateTagPutOrPostBody(name, state)
-	if err != nil {
-		return -1, "", err
-	}
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPost, "/tags", bytes.NewBuffer([]byte(tagCreateDTO)))
-	req.Header.Set("Content-Type", "application/json")
-	Router.ServeHTTP(w, req)
-	return w.Code, w.Body.String(), nil
-}
-
-func GetTag(id string) (int, string) {
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/tags/"+id, nil)
-	Router.ServeHTTP(w, req)
-	return w.Code, w.Body.String()
-}
-
-func GetTags(limit any, offset any) (int, string, error) {
-	queryParams, err := CreateLimitAndOffsetQueryParams(limit, offset)
-	if err != nil {
-		return -1, "", err
-	}
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/tags"+queryParams, nil)
-	Router.ServeHTTP(w, req)
-	return w.Code, w.Body.String(), nil
-}
-
-func UpdateTag(id any, name any, state any) (int, string, error) {
-	idParam, err := ParseForPathParam("id", id)
-	if err != nil {
-		return -1, "", err
-	}
-	tagUpdateDTO, err := CreateTagPutOrPostBody(name, state)
-	if err != nil {
-		return -1, "", err
-	}
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPut, "/tags"+idParam, bytes.NewBuffer([]byte(tagUpdateDTO)))
-	req.Header.Set("Content-Type", "application/json")
-	Router.ServeHTTP(w, req)
-	return w.Code, w.Body.String(), nil
-}
-
-func DeleteTag(id any) (int, string, error) {
-	idParam, err := ParseForPathParam("id", id)
-	if err != nil {
-		return -1, "", err
-	}
-
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodDelete, "/tags"+idParam, nil)
-	Router.ServeHTTP(w, req)
-	return w.Code, w.Body.String(), nil
-}
-
 func TestApiTagGet(t *testing.T) {
 	t.Run("NotFoundCase", RunWithRecreateDB((func(t *testing.T) {
-		httpStatusCode, body := GetTag("1")
+		httpStatusCode, body := testHttpClient.GetTag("1")
 
 		assert.Equal(t, http.StatusNotFound, httpStatusCode)
 		assert.Equal(t, "\""+api.PAGE_NOT_FOUND+"\"", body)
@@ -132,26 +46,26 @@ func TestApiTagGet(t *testing.T) {
 			"\"State\":\"" + expectedState + "\"" +
 			"}"
 
-		CreateTag(expectedName, expectedState)
-		httpStatusCode, body := GetTag(expectedId)
+		testHttpClient.CreateTag(expectedName, expectedState)
+		httpStatusCode, body := testHttpClient.GetTag(expectedId)
 
 		assert.Equal(t, http.StatusOK, httpStatusCode)
 		assert.Equal(t, expectedBody, body)
 	})))
 	t.Run("WrongInput: 'Id' is a string", RunWithRecreateDB((func(t *testing.T) {
-		httpStatusCode, body := GetTag("text")
+		httpStatusCode, body := testHttpClient.GetTag("text")
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, "\""+api.ERROR_ID_WRONG_FORMAT+"\"", body)
 	})))
 	t.Run("WrongInput: 'Id' is a float", RunWithRecreateDB((func(t *testing.T) {
-		httpStatusCode, body := GetTag("2.15")
+		httpStatusCode, body := testHttpClient.GetTag("2.15")
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, "\""+api.ERROR_ID_WRONG_FORMAT+"\"", body)
 	})))
 	t.Run("WrongInput: 'Id' is a empty string", RunWithRecreateDB((func(t *testing.T) {
-		httpStatusCode, body := GetTag("")
+		httpStatusCode, body := testHttpClient.GetTag("")
 
 		assert.Equal(t, http.StatusMovedPermanently, httpStatusCode)
 		assert.Equal(t, "<a href=\"/tags\">Moved Permanently</a>.\n\n", body)
@@ -170,7 +84,7 @@ func TestApiTagGetAll(t *testing.T) {
 			name := "Test Tag " + id
 			state := entities.TAG_STATE_NEW
 
-			CreateTag(name, state)
+			testHttpClient.CreateTag(name, state)
 			expectedBody += "{\"Id\":" + id + "," + "\"Name\":\"" + name + "\"," + "\"State\":\"" + state + "\"}"
 			if i != 10 {
 				expectedBody += ","
@@ -180,7 +94,7 @@ func TestApiTagGetAll(t *testing.T) {
 		}
 		expectedBody += "}"
 
-		httpStatusCode, body, _ := GetTags(nil, nil)
+		httpStatusCode, body, _ := testHttpClient.GetTags(nil, nil)
 
 		assert.Equal(t, http.StatusOK, httpStatusCode)
 		assert.Equal(t, expectedBody, body)
@@ -192,7 +106,7 @@ func TestApiTagGetAll(t *testing.T) {
 		expectedBody += "\"Limit\":50,"
 		expectedBody += "\"Data\":[]"
 		expectedBody += "}"
-		httpStatusCode, body, _ := GetTags(nil, nil)
+		httpStatusCode, body, _ := testHttpClient.GetTags(nil, nil)
 
 		assert.Equal(t, http.StatusOK, httpStatusCode)
 		assert.Equal(t, expectedBody, body)
@@ -220,10 +134,10 @@ func TestApiTagGetAll(t *testing.T) {
 			id := strconv.Itoa(i)
 			name := "Test Tag " + id
 			state := entities.TAG_STATE_NEW
-			CreateTag(name, state)
+			testHttpClient.CreateTag(name, state)
 		}
 
-		httpStatusCode, body, _ := GetTags(5, 0)
+		httpStatusCode, body, _ := testHttpClient.GetTags(5, 0)
 
 		assert.Equal(t, http.StatusOK, httpStatusCode)
 		assert.Equal(t, expectedBody, body)
@@ -251,10 +165,10 @@ func TestApiTagGetAll(t *testing.T) {
 			id := strconv.Itoa(i)
 			name := "Test Tag " + id
 			state := entities.TAG_STATE_NEW
-			CreateTag(name, state)
+			testHttpClient.CreateTag(name, state)
 		}
 
-		httpStatusCode, body, _ := GetTags(50, 5)
+		httpStatusCode, body, _ := testHttpClient.GetTags(50, 5)
 
 		assert.Equal(t, http.StatusOK, httpStatusCode)
 		assert.Equal(t, expectedBody, body)
@@ -263,55 +177,55 @@ func TestApiTagGetAll(t *testing.T) {
 
 func TestApiTagCreate(t *testing.T) {
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
-		httpStatusCode, body, _ := CreateTag("Test Tag 1", entities.TAG_STATE_NEW)
+		httpStatusCode, body, _ := testHttpClient.CreateTag("Test Tag 1", entities.TAG_STATE_NEW)
 
 		assert.Equal(t, http.StatusCreated, httpStatusCode)
 		assert.Equal(t, "1", body)
 	})))
 	t.Run("WrongInput: Missed 'Name'", RunWithRecreateDB((func(t *testing.T) {
-		httpStatusCode, body, _ := CreateTag(nil, entities.TAG_STATE_NEW)
+		httpStatusCode, body, _ := testHttpClient.CreateTag(nil, entities.TAG_STATE_NEW)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_TAG_NAME_IS_REQUIRED, body)
 	})))
 	t.Run("WrongInput: Missed 'State'", RunWithRecreateDB((func(t *testing.T) {
-		httpStatusCode, body, _ := CreateTag("Test Tag 1", nil)
+		httpStatusCode, body, _ := testHttpClient.CreateTag("Test Tag 1", nil)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_TAG_STATE_IS_REQUIRED, body)
 	})))
 	t.Run("WrongInput: Missed 'Name' and 'State'", RunWithRecreateDB((func(t *testing.T) {
-		httpStatusCode, body, _ := CreateTag(nil, nil)
+		httpStatusCode, body, _ := testHttpClient.CreateTag(nil, nil)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_TAG_NAME_AND_STATE_IS_REQUIRED, body)
 	})))
 	t.Run("WrongInput: 'Name' is not a string", RunWithRecreateDB((func(t *testing.T) {
-		httpStatusCode, body, _ := CreateTag(1, entities.TAG_STATE_NEW)
+		httpStatusCode, body, _ := testHttpClient.CreateTag(1, entities.TAG_STATE_NEW)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, "\""+api.ERROR_MESSAGE_PARSING_BODY_JSON+"\"", body)
 	})))
 	t.Run("WrongInput: 'State' is not a string", RunWithRecreateDB((func(t *testing.T) {
-		httpStatusCode, body, _ := CreateTag("Test Tag 1", 1)
+		httpStatusCode, body, _ := testHttpClient.CreateTag("Test Tag 1", 1)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, "\""+api.ERROR_MESSAGE_PARSING_BODY_JSON+"\"", body)
 	})))
 	t.Run("WrongInput: 'Name' is empty string", RunWithRecreateDB((func(t *testing.T) {
-		httpStatusCode, body, _ := CreateTag("", entities.TAG_STATE_NEW)
+		httpStatusCode, body, _ := testHttpClient.CreateTag("", entities.TAG_STATE_NEW)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_TAG_NAME_IS_REQUIRED, body)
 	})))
 	t.Run("WrongInput: 'State' is empty a string", RunWithRecreateDB((func(t *testing.T) {
-		httpStatusCode, body, _ := CreateTag("Test Tag 1", "")
+		httpStatusCode, body, _ := testHttpClient.CreateTag("Test Tag 1", "")
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_TAG_STATE_IS_REQUIRED, body)
 	})))
 	t.Run("WrongInput: 'State' has a value that not from enum", RunWithRecreateDB((func(t *testing.T) {
-		httpStatusCode, body, _ := CreateTag("Test Tag 1", "MISSED TEST STATE")
+		httpStatusCode, body, _ := testHttpClient.CreateTag("Test Tag 1", "MISSED TEST STATE")
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, "\""+ERROR_TAG_CREATE_STATE_WRONG_VALUE+"\"", body)
@@ -319,18 +233,18 @@ func TestApiTagCreate(t *testing.T) {
 	t.Run("DuplicateCase", RunWithRecreateDB((func(t *testing.T) {
 		expectedId := "1"
 
-		httpStatusCode, body, _ := CreateTag("Test Tag 1", entities.TAG_STATE_NEW)
+		httpStatusCode, body, _ := testHttpClient.CreateTag("Test Tag 1", entities.TAG_STATE_NEW)
 
 		assert.Equal(t, http.StatusCreated, httpStatusCode)
 		assert.Equal(t, expectedId, body)
 
-		httpStatusCode, body, _ = CreateTag("Test Tag 1", entities.TAG_STATE_NEW)
+		httpStatusCode, body, _ = testHttpClient.CreateTag("Test Tag 1", entities.TAG_STATE_NEW)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, "\""+api.DUPLICATE_FOUND+"\"", body)
 	})))
 	t.Run("DeletedCase: try to create as deleted", RunWithRecreateDB((func(t *testing.T) {
-		httpStatusCode, body, _ := CreateTag("Test Tag 1", entities.TAG_STATE_DELETED)
+		httpStatusCode, body, _ := testHttpClient.CreateTag("Test Tag 1", entities.TAG_STATE_DELETED)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, "\""+api.DELETE_VIA_POST_REQUEST_IS_FODBIDDEN+"\"", body)
@@ -347,87 +261,87 @@ func TestApiTagUpdate(t *testing.T) {
 			"\"Name\":\"" + expectedName + "\"," +
 			"\"State\":\"" + expectedState + "\"" +
 			"}"
-		CreateTag("Test Tag 1", entities.TAG_STATE_NEW)
+		testHttpClient.CreateTag("Test Tag 1", entities.TAG_STATE_NEW)
 
-		httpStatusCode, body, _ := UpdateTag(expectedId, "Test Tag 2", entities.TAG_STATE_BLOCKED)
+		httpStatusCode, body, _ := testHttpClient.UpdateTag(expectedId, "Test Tag 2", entities.TAG_STATE_BLOCKED)
 
 		assert.Equal(t, http.StatusOK, httpStatusCode)
 		assert.Equal(t, "\""+api.DONE+"\"", body)
 
-		httpStatusCode, body = GetTag(expectedId)
+		httpStatusCode, body = testHttpClient.GetTag(expectedId)
 
 		assert.Equal(t, http.StatusOK, httpStatusCode)
 		assert.Equal(t, expectedBody, body)
 
 	})))
 	t.Run("WrongInput: 'Id' is a empty string", RunWithRecreateDB((func(t *testing.T) {
-		httpStatusCode, body, _ := UpdateTag("", "Test Tag 2", entities.TAG_STATE_BLOCKED)
+		httpStatusCode, body, _ := testHttpClient.UpdateTag("", "Test Tag 2", entities.TAG_STATE_BLOCKED)
 
 		assert.Equal(t, http.StatusNotFound, httpStatusCode)
 		assert.Equal(t, api.PAGE_NOT_FOUND, body)
 	})))
 	t.Run("WrongInput: 'Id' is a string", RunWithRecreateDB((func(t *testing.T) {
-		httpStatusCode, body, _ := UpdateTag("text", "Test Tag 2", entities.TAG_STATE_BLOCKED)
+		httpStatusCode, body, _ := testHttpClient.UpdateTag("text", "Test Tag 2", entities.TAG_STATE_BLOCKED)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, "\""+api.ERROR_ID_WRONG_FORMAT+"\"", body)
 	})))
 	t.Run("WrongInput: 'Id' is a float", RunWithRecreateDB((func(t *testing.T) {
-		httpStatusCode, body, _ := UpdateTag("2.15", "Test Tag 2", entities.TAG_STATE_BLOCKED)
+		httpStatusCode, body, _ := testHttpClient.UpdateTag("2.15", "Test Tag 2", entities.TAG_STATE_BLOCKED)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, "\""+api.ERROR_ID_WRONG_FORMAT+"\"", body)
 	})))
 	t.Run("WrongInput: Missed 'Name'", RunWithRecreateDB((func(t *testing.T) {
-		httpStatusCode, body, _ := UpdateTag("1", nil, entities.TAG_STATE_BLOCKED)
+		httpStatusCode, body, _ := testHttpClient.UpdateTag("1", nil, entities.TAG_STATE_BLOCKED)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_TAG_NAME_IS_REQUIRED, body)
 	})))
 	t.Run("WrongInput: Missed 'State'", RunWithRecreateDB((func(t *testing.T) {
-		httpStatusCode, body, _ := UpdateTag("1", "Test Tag 2", nil)
+		httpStatusCode, body, _ := testHttpClient.UpdateTag("1", "Test Tag 2", nil)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_TAG_STATE_IS_REQUIRED, body)
 	})))
 	t.Run("WrongInput: Missed 'Name' and 'State'", RunWithRecreateDB((func(t *testing.T) {
-		httpStatusCode, body, _ := UpdateTag("1", nil, nil)
+		httpStatusCode, body, _ := testHttpClient.UpdateTag("1", nil, nil)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_TAG_NAME_AND_STATE_IS_REQUIRED, body)
 	})))
 	t.Run("WrongInput: 'Name' is not a string", RunWithRecreateDB((func(t *testing.T) {
-		httpStatusCode, body, _ := UpdateTag("1", 10000, entities.TAG_STATE_BLOCKED)
+		httpStatusCode, body, _ := testHttpClient.UpdateTag("1", 10000, entities.TAG_STATE_BLOCKED)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, "\""+api.ERROR_MESSAGE_PARSING_BODY_JSON+"\"", body)
 	})))
 	t.Run("WrongInput: 'State' is not a string", RunWithRecreateDB((func(t *testing.T) {
-		httpStatusCode, body, _ := UpdateTag("1", "Test Tag 2", 10000)
+		httpStatusCode, body, _ := testHttpClient.UpdateTag("1", "Test Tag 2", 10000)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, "\""+api.ERROR_MESSAGE_PARSING_BODY_JSON+"\"", body)
 	})))
 	t.Run("WrongInput: 'Name' is empty string", RunWithRecreateDB((func(t *testing.T) {
-		httpStatusCode, body, _ := UpdateTag("1", "", entities.TAG_STATE_BLOCKED)
+		httpStatusCode, body, _ := testHttpClient.UpdateTag("1", "", entities.TAG_STATE_BLOCKED)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_TAG_NAME_IS_REQUIRED, body)
 	})))
 	t.Run("WrongInput: 'State' is empty a string", RunWithRecreateDB((func(t *testing.T) {
-		httpStatusCode, body, _ := UpdateTag("1", "Test Tag 2", "")
+		httpStatusCode, body, _ := testHttpClient.UpdateTag("1", "Test Tag 2", "")
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_TAG_STATE_IS_REQUIRED, body)
 	})))
 	t.Run("WrongInput: 'State' has a value that not from enum", RunWithRecreateDB((func(t *testing.T) {
-		httpStatusCode, body, _ := UpdateTag("1", "Test Tag 2", "MISSED TEST STATE")
+		httpStatusCode, body, _ := testHttpClient.UpdateTag("1", "Test Tag 2", "MISSED TEST STATE")
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, "\""+ERROR_TAG_UPDATE_STATE_WRONG_VALUE+"\"", body)
 	})))
 	t.Run("NotFoundCase", RunWithRecreateDB((func(t *testing.T) {
-		httpStatusCode, body, _ := UpdateTag("1", "Test Tag 2", entities.TAG_STATE_BLOCKED)
+		httpStatusCode, body, _ := testHttpClient.UpdateTag("1", "Test Tag 2", entities.TAG_STATE_BLOCKED)
 
 		assert.Equal(t, http.StatusNotFound, httpStatusCode)
 		assert.Equal(t, "\""+api.PAGE_NOT_FOUND+"\"", body)
@@ -435,10 +349,10 @@ func TestApiTagUpdate(t *testing.T) {
 	t.Run("DeletedCase: find deleted", RunWithRecreateDB((func(t *testing.T) {
 		expectedId := "1"
 
-		CreateTag("Test Tag 1", entities.TAG_STATE_NEW)
-		DeleteTag(expectedId)
+		testHttpClient.CreateTag("Test Tag 1", entities.TAG_STATE_NEW)
+		testHttpClient.DeleteTag(expectedId)
 
-		httpStatusCode, body, _ := UpdateTag(expectedId, "Test Tag 2", entities.TAG_STATE_BLOCKED)
+		httpStatusCode, body, _ := testHttpClient.UpdateTag(expectedId, "Test Tag 2", entities.TAG_STATE_BLOCKED)
 
 		assert.Equal(t, http.StatusNotFound, httpStatusCode)
 		assert.Equal(t, "\""+api.PAGE_NOT_FOUND+"\"", body)
@@ -446,8 +360,8 @@ func TestApiTagUpdate(t *testing.T) {
 	t.Run("DeletedCase: try to mark as deleted", RunWithRecreateDB((func(t *testing.T) {
 		expectedId := "1"
 
-		CreateTag("Test Tag 1", entities.TAG_STATE_NEW)
-		httpStatusCode, body, _ := UpdateTag(expectedId, "Test Tag 2", entities.TAG_STATE_DELETED)
+		testHttpClient.CreateTag("Test Tag 1", entities.TAG_STATE_NEW)
+		httpStatusCode, body, _ := testHttpClient.UpdateTag(expectedId, "Test Tag 2", entities.TAG_STATE_DELETED)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, "\""+api.DELETE_VIA_PUT_REQUEST_IS_FODBIDDEN+"\"", body)
@@ -455,10 +369,10 @@ func TestApiTagUpdate(t *testing.T) {
 	t.Run("DuplicateCase", RunWithRecreateDB((func(t *testing.T) {
 		expectedId := "2"
 
-		CreateTag("Test Tag 1", entities.TAG_STATE_NEW)
-		CreateTag("Test Tag 2", entities.TAG_STATE_NEW)
+		testHttpClient.CreateTag("Test Tag 1", entities.TAG_STATE_NEW)
+		testHttpClient.CreateTag("Test Tag 2", entities.TAG_STATE_NEW)
 
-		httpStatusCode, body, _ := UpdateTag(expectedId, "Test Tag 1", entities.TAG_STATE_NEW)
+		httpStatusCode, body, _ := testHttpClient.UpdateTag(expectedId, "Test Tag 1", entities.TAG_STATE_NEW)
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, "\""+api.DUPLICATE_FOUND+"\"", body)
@@ -473,15 +387,15 @@ func TestApiTagUpdate(t *testing.T) {
 			"\"State\":\"" + expectedState + "\"" +
 			"}"
 
-		CreateTag("Test Tag 1", entities.TAG_STATE_NEW)
+		testHttpClient.CreateTag("Test Tag 1", entities.TAG_STATE_NEW)
 
 		for i := 1; i <= 3; i++ {
-			httpStatusCode, body, _ := UpdateTag(expectedId, "Test Tag 2", entities.TAG_STATE_BLOCKED)
+			httpStatusCode, body, _ := testHttpClient.UpdateTag(expectedId, "Test Tag 2", entities.TAG_STATE_BLOCKED)
 
 			assert.Equal(t, http.StatusOK, httpStatusCode)
 			assert.Equal(t, "\""+api.DONE+"\"", body)
 
-			httpStatusCode, body = GetTag(expectedId)
+			httpStatusCode, body = testHttpClient.GetTag(expectedId)
 
 			assert.Equal(t, http.StatusOK, httpStatusCode)
 			assert.Equal(t, expectedBody, body)
@@ -493,32 +407,32 @@ func TestApiTagDelete(t *testing.T) {
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		expectedId := "1"
 
-		CreateTag("Test Tag 1", entities.TAG_STATE_NEW)
+		testHttpClient.CreateTag("Test Tag 1", entities.TAG_STATE_NEW)
 
-		httpStatusCode, body, _ := DeleteTag(expectedId)
+		httpStatusCode, body, _ := testHttpClient.DeleteTag(expectedId)
 
 		assert.Equal(t, http.StatusOK, httpStatusCode)
 		assert.Equal(t, "\""+api.DONE+"\"", body)
 
-		httpStatusCode, body = GetTag(expectedId)
+		httpStatusCode, body = testHttpClient.GetTag(expectedId)
 
 		assert.Equal(t, http.StatusNotFound, httpStatusCode)
 		assert.Equal(t, "\""+api.PAGE_NOT_FOUND+"\"", body)
 	})))
 	t.Run("WrongInput: 'Id' is a string", RunWithRecreateDB((func(t *testing.T) {
-		httpStatusCode, body, _ := DeleteTag("text")
+		httpStatusCode, body, _ := testHttpClient.DeleteTag("text")
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, "\""+api.ERROR_ID_WRONG_FORMAT+"\"", body)
 	})))
 	t.Run("WrongInput: 'Id' is a float", RunWithRecreateDB((func(t *testing.T) {
-		httpStatusCode, body, _ := DeleteTag("2.15")
+		httpStatusCode, body, _ := testHttpClient.DeleteTag("2.15")
 
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, "\""+api.ERROR_ID_WRONG_FORMAT+"\"", body)
 	})))
 	t.Run("WrongInput: 'Id' is a empty string", RunWithRecreateDB((func(t *testing.T) {
-		httpStatusCode, body, _ := DeleteTag("")
+		httpStatusCode, body, _ := testHttpClient.DeleteTag("")
 
 		assert.Equal(t, http.StatusNotFound, httpStatusCode)
 		assert.Equal(t, api.PAGE_NOT_FOUND, body)
@@ -526,14 +440,14 @@ func TestApiTagDelete(t *testing.T) {
 	t.Run("MultipleDeleteCase", RunWithRecreateDB((func(t *testing.T) {
 		expectedId := "1"
 
-		CreateTag("Test Tag 1", entities.TAG_STATE_NEW)
+		testHttpClient.CreateTag("Test Tag 1", entities.TAG_STATE_NEW)
 
-		httpStatusCode, body, _ := DeleteTag(expectedId)
+		httpStatusCode, body, _ := testHttpClient.DeleteTag(expectedId)
 
 		assert.Equal(t, http.StatusOK, httpStatusCode)
 		assert.Equal(t, "\""+api.DONE+"\"", body)
 
-		httpStatusCode, body, _ = DeleteTag(expectedId)
+		httpStatusCode, body, _ = testHttpClient.DeleteTag(expectedId)
 
 		assert.Equal(t, http.StatusNotFound, httpStatusCode)
 		assert.Equal(t, "\""+api.PAGE_NOT_FOUND+"\"", body)
