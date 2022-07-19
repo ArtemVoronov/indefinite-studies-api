@@ -43,12 +43,16 @@ const (
 	TEST_USER_EMAIL_TEMPLATE   string = "user%v@somewhere.com"
 	TEST_USER_PASSORD_TEMPLATE string = "Test password "
 
-	TEST_NOTE_TEXT_1  string = "Test text 1"
-	TEST_NOTE_TOPIC_1 string = "Test topic 1"
-	TEST_NOTE_STATE_1 string = entities.NOTE_STATE_NEW
-	TEST_NOTE_TEXT_2  string = "Test text 2"
-	TEST_NOTE_TOPIC_2 string = "Test topic 2"
-	TEST_NOTE_STATE_2 string = entities.NOTE_STATE_BLOCKED
+	TEST_NOTE_TEXT_1    string = "Test text 1"
+	TEST_NOTE_TOPIC_1   string = "Test topic 1"
+	TEST_NOTE_TAG_ID_1  int    = 1
+	TEST_NOTE_USER_ID_1 int    = 1
+	TEST_NOTE_STATE_1   string = entities.NOTE_STATE_NEW
+	TEST_NOTE_TEXT_2    string = "Test text 2"
+	TEST_NOTE_TOPIC_2   string = "Test topic 2"
+	TEST_NOTE_TAG_ID_2  int    = 2
+	TEST_NOTE_USER_ID_2 int    = 2
+	TEST_NOTE_STATE_2   string = entities.NOTE_STATE_BLOCKED
 
 	TEST_NOTE_TEXT_TEMPLATE  string = "Test text "
 	TEST_NOTE_TOPIC_TEMPLATE string = "Test topic "

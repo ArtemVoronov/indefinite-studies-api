@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/notes"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/ping"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/tags"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/tasks"
@@ -60,6 +61,12 @@ func SetupRouter() *gin.Engine {
 	r.POST("/users", users.CreateUser)
 	r.PUT("/users/:id", users.UpdateUser)
 	r.DELETE("/users/:id", users.DeleteUser)
+
+	r.GET("/notes", notes.GetNotes)
+	r.GET("/notes/:id", notes.GetNote)
+	r.POST("/notes", notes.CreateNote)
+	r.PUT("/notes/:id", notes.UpdateNote)
+	r.DELETE("/notes/:id", notes.DeleteNote)
 
 	return r
 }

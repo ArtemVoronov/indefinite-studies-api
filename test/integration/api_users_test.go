@@ -68,8 +68,12 @@ func TestApiUserGet(t *testing.T) {
 			"\"State\":\"" + state + "\"" +
 			"}"
 
-		testHttpClient.CreateUser(login, email, password, role, state)
-		httpStatusCode, body := testHttpClient.GetUser(id)
+		httpStatusCode, body, _ := testHttpClient.CreateUser(login, email, password, role, state)
+
+		assert.Equal(t, http.StatusCreated, httpStatusCode)
+		assert.Equal(t, id, body)
+
+		httpStatusCode, body = testHttpClient.GetUser(id)
 
 		assert.Equal(t, http.StatusOK, httpStatusCode)
 		assert.Equal(t, expectedBody, body)
@@ -265,6 +269,12 @@ func TestApiUserCreate(t *testing.T) {
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_USER_STATE_IS_REQUIRED, body)
 	})))
+	t.Run("WrongInput: Missed all reqired", RunWithRecreateDB((func(t *testing.T) {
+		httpStatusCode, body, _ := testHttpClient.CreateUser(nil, nil, nil, nil, nil)
+
+		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
+		assert.Equal(t, ERROR_USER_ALL_ARE_REQUIRED, body)
+	})))
 	t.Run("WrongInput: 'Login' is empty string", RunWithRecreateDB((func(t *testing.T) {
 		httpStatusCode, body, _ := testHttpClient.CreateUser("", TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
@@ -430,6 +440,12 @@ func TestApiUserUpdate(t *testing.T) {
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
 		assert.Equal(t, ERROR_USER_STATE_IS_REQUIRED, body)
 	})))
+	t.Run("WrongInput: Missed all reqired", RunWithRecreateDB((func(t *testing.T) {
+		httpStatusCode, body, _ := testHttpClient.UpdateUser("1", nil, nil, nil, nil, nil)
+
+		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
+		assert.Equal(t, ERROR_USER_ALL_ARE_REQUIRED, body)
+	})))
 	t.Run("WrongInput: 'Login' is empty string", RunWithRecreateDB((func(t *testing.T) {
 		httpStatusCode, body, _ := testHttpClient.UpdateUser("1", "", TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)
 		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
@@ -553,16 +569,12 @@ func TestApiUserUpdate(t *testing.T) {
 	})))
 	t.Run("MultipleUpdateCase", RunWithRecreateDB((func(t *testing.T) {
 		id := "1"
-		login := TEST_USER_LOGIN_2
-		email := TEST_USER_EMAIL_2
-		role := TEST_USER_ROLE_2
-		state := TEST_USER_STATE_2
 		expectedBody := "{" +
 			"\"Id\":" + id + "," +
-			"\"Login\":\"" + login + "\"," +
-			"\"Email\":\"" + email + "\"," +
-			"\"Role\":\"" + role + "\"," +
-			"\"State\":\"" + state + "\"" +
+			"\"Login\":\"" + TEST_USER_LOGIN_2 + "\"," +
+			"\"Email\":\"" + TEST_USER_EMAIL_2 + "\"," +
+			"\"Role\":\"" + TEST_USER_ROLE_2 + "\"," +
+			"\"State\":\"" + TEST_USER_STATE_2 + "\"" +
 			"}"
 
 		httpStatusCode, body, _ := testHttpClient.CreateUser(TEST_USER_LOGIN_1, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1, TEST_USER_ROLE_1, TEST_USER_STATE_1)

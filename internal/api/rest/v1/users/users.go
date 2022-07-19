@@ -141,7 +141,7 @@ func CreateUser(c *gin.Context) {
 		return
 	}
 
-	if user.State == entities.TASK_STATE_DELETED {
+	if user.State == entities.USER_STATE_DELETED {
 		c.JSON(http.StatusBadRequest, api.DELETE_VIA_POST_REQUEST_IS_FODBIDDEN)
 		return
 	}
@@ -186,7 +186,7 @@ func UpdateUser(c *gin.Context) {
 		return
 	}
 
-	if user.State == entities.TASK_STATE_DELETED {
+	if user.State == entities.USER_STATE_DELETED {
 		c.JSON(http.StatusBadRequest, api.DELETE_VIA_PUT_REQUEST_IS_FODBIDDEN)
 		return
 	}

@@ -46,8 +46,12 @@ func TestApiTaskGet(t *testing.T) {
 			"\"State\":\"" + expectedState + "\"" +
 			"}"
 
-		testHttpClient.CreateTask(expectedName, expectedState)
-		httpStatusCode, body := testHttpClient.GetTask(expectedId)
+		httpStatusCode, body, _ := testHttpClient.CreateTask(expectedName, expectedState)
+
+		assert.Equal(t, http.StatusCreated, httpStatusCode)
+		assert.Equal(t, expectedId, body)
+
+		httpStatusCode, body = testHttpClient.GetTask(expectedId)
 
 		assert.Equal(t, http.StatusOK, httpStatusCode)
 		assert.Equal(t, expectedBody, body)
