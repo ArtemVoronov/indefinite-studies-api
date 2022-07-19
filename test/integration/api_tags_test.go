@@ -46,8 +46,12 @@ func TestApiTagGet(t *testing.T) {
 			"\"State\":\"" + expectedState + "\"" +
 			"}"
 
-		testHttpClient.CreateTag(expectedName, expectedState)
-		httpStatusCode, body := testHttpClient.GetTag(expectedId)
+		httpStatusCode, body, _ := testHttpClient.CreateTag(expectedName, expectedState)
+
+		assert.Equal(t, http.StatusCreated, httpStatusCode)
+		assert.Equal(t, expectedId, body)
+
+		httpStatusCode, body = testHttpClient.GetTag(expectedId)
 
 		assert.Equal(t, http.StatusOK, httpStatusCode)
 		assert.Equal(t, expectedBody, body)

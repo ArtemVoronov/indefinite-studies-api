@@ -21,7 +21,7 @@ type TagsApi interface {
 	DeleteTag(id any) (int, string, error)
 }
 
-type TaskApi interface {
+type TasksApi interface {
 	CreateTask(name any, state any) (int, string, error)
 	GetTask(id string) (int, string)
 	GetTasks(limit any, offset any) (int, string, error)
@@ -37,10 +37,19 @@ type UsersApi interface {
 	DeleteUser(id any) (int, string, error)
 }
 
+type NotesApi interface {
+	CreateNote(text any, topic any, tagId any, userId any, state any) (int, string, error)
+	GetNote(id string) (int, string)
+	GetNotes(limit any, offset any) (int, string, error)
+	UpdateNote(id any, text any, topic any, tagId any, userId any, state any) (int, string, error)
+	DeleteNote(id any) (int, string, error)
+}
+
 type TestApi interface {
 	TagsApi
-	TaskApi
+	TasksApi
 	UsersApi
+	NotesApi
 }
 
 type TestHttpClient struct {
@@ -229,6 +238,67 @@ func (p *TestHttpClient) DeleteUser(id any) (int, string, error) {
 	return w.Code, w.Body.String(), nil
 }
 
+func (p *TestHttpClient) CreateNote(text any, topic any, tagId any, userId any, state any) (int, string, error) {
+	noteCreateDTO, err := CreateNotePutOrPostBody(text, topic, tagId, userId, state)
+	if err != nil {
+		return -1, "", err
+	}
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodPost, "/notes", bytes.NewBuffer([]byte(noteCreateDTO)))
+	req.Header.Set("Content-Type", "application/json")
+	TestRouter.ServeHTTP(w, req)
+	return w.Code, w.Body.String(), nil
+}
+
+func (p *TestHttpClient) GetNote(id string) (int, string) {
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/notes/"+id, nil)
+	TestRouter.ServeHTTP(w, req)
+	return w.Code, w.Body.String()
+}
+
+func (p *TestHttpClient) GetNotes(limit any, offset any) (int, string, error) {
+	queryParams, err := CreateLimitAndOffsetQueryParams(limit, offset)
+	if err != nil {
+		return -1, "", err
+	}
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/notes"+queryParams, nil)
+	TestRouter.ServeHTTP(w, req)
+	return w.Code, w.Body.String(), nil
+}
+
+func (p *TestHttpClient) UpdateNote(id any, text any, topic any, tagId any, userId any, state any) (int, string, error) {
+	idParam, err := ParseForPathParam("id", id)
+	if err != nil {
+		return -1, "", err
+	}
+	noteUpdateDTO, err := CreateNotePutOrPostBody(text, topic, tagId, userId, state)
+	if err != nil {
+		return -1, "", err
+	}
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodPut, "/notes"+idParam, bytes.NewBuffer([]byte(noteUpdateDTO)))
+	req.Header.Set("Content-Type", "application/json")
+	TestRouter.ServeHTTP(w, req)
+	return w.Code, w.Body.String(), nil
+}
+
+func (p *TestHttpClient) DeleteNote(id any) (int, string, error) {
+	idParam, err := ParseForPathParam("id", id)
+	if err != nil {
+		return -1, "", err
+	}
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodDelete, "/notes"+idParam, nil)
+	TestRouter.ServeHTTP(w, req)
+	return w.Code, w.Body.String(), nil
+}
+
 func ParseForJsonBody(paramName string, paramValue any) (string, error) {
 	result := ""
 	switch paramType := paramValue.(type) {
@@ -385,4 +455,49 @@ func CreateUserPutOrPostBody(login any, email any, password any, role any, state
 	}
 	userCreateDTO += "}"
 	return userCreateDTO, nil
+}
+
+func CreateNotePutOrPostBody(text any, topic any, tagId any, userId any, state any) (string, error) {
+	textField, err := ParseForJsonBody("Text", text)
+	if err != nil {
+		return "", err
+	}
+	topicField, err := ParseForJsonBody("Topic", topic)
+	if err != nil {
+		return "", err
+	}
+	tagIdField, err := ParseForJsonBody("TagId", tagId)
+	if err != nil {
+		return "", err
+	}
+	userIdField, err := ParseForJsonBody("UserId", userId)
+	if err != nil {
+		return "", err
+	}
+	stateField, err := ParseForJsonBody("State", state)
+	if err != nil {
+		return "", err
+	}
+
+	noteCreateDTO := "{"
+	if textField != "" {
+		noteCreateDTO += textField + ","
+	}
+	if topicField != "" {
+		noteCreateDTO += topicField + ","
+	}
+	if tagIdField != "" {
+		noteCreateDTO += tagIdField + ","
+	}
+	if userIdField != "" {
+		noteCreateDTO += userIdField + ","
+	}
+	if stateField != "" {
+		noteCreateDTO += stateField + ","
+	}
+	if len(noteCreateDTO) != 1 {
+		noteCreateDTO = noteCreateDTO[:len(noteCreateDTO)-1]
+	}
+	noteCreateDTO += "}"
+	return noteCreateDTO, nil
 }
