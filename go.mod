@@ -5,6 +5,7 @@ go 1.18
 require (
 	github.com/antonholmquist/jason v1.0.0 // indirect
 	github.com/bsiegert/ranges v0.0.0-20111221115336-19303dc7aa63 // indirect
+	github.com/confluentinc/confluent-kafka-go v1.9.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/divan/expvarmon v0.0.0-20190204123027-8bf297f0fa5d // indirect
 	github.com/gin-contrib/expvar v0.0.1 // indirect
@@ -31,8 +32,8 @@ require (
 	github.com/stretchr/testify v1.8.0 // indirect
 	github.com/ugorji/go/codec v1.2.7 // indirect
 	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97 // indirect
-	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110 // indirect
-	golang.org/x/sys v0.0.0-20210806184541-e5e7981a1069 // indirect
+	golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4 // indirect
+	golang.org/x/sys v0.0.0-20211007075335-d3039528d8ac // indirect
 	golang.org/x/text v0.3.6 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
