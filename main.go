@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-contrib/expvar"
 
+	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/auth"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/notes"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/ping"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/tags"
@@ -19,7 +20,8 @@ import (
 func main() {
 
 	app.InitEnv()
-	apiUsers := app.GetApiUsers()
+	auth.Setup()
+	// apiUsers := app.GetApiUsers() // TODO clean
 	host := app.GetHost()
 
 	router := gin.Default()
@@ -42,10 +44,15 @@ func main() {
 	db.GetInstance()
 
 	// TODO: add permission controller by user role and user state
-	v1 := router.Group("/api/v1", gin.BasicAuth(apiUsers)) // TODO: add auth via jwt, update model accordingly
+	// v1 := router.Group("/api/v1", gin.BasicAuth(apiUsers)) // TODO: add auth via jwt, update model accordingly
+	v1 := router.Group("/api/v1") // TODO: add auth via jwt, update model accordingly
 	{
 		v1.GET("/debug/vars", expvar.Handler())
 		v1.GET("/ping", ping.Ping)
+
+		v1.POST("/auth/login", auth.Authenicate)
+		v1.POST("/auth/verify", auth.Verify)
+		// TODO: add logout, signup, refresh token
 
 		v1.GET("/tasks/", tasks.GetTasks)
 		v1.GET("/tasks/:id", tasks.GetTask)

@@ -45,11 +45,17 @@ type NotesApi interface {
 	DeleteNote(id any) (int, string, error)
 }
 
+type AuthApi interface {
+	Authenicate(email any, password any) (int, string, error)
+	Verify(token any) (int, string, error)
+}
+
 type TestApi interface {
 	TagsApi
 	TasksApi
 	UsersApi
 	NotesApi
+	AuthApi
 }
 
 type TestHttpClient struct {
@@ -299,6 +305,32 @@ func (p *TestHttpClient) DeleteNote(id any) (int, string, error) {
 	return w.Code, w.Body.String(), nil
 }
 
+func (p *TestHttpClient) Authenicate(email any, password any) (int, string, error) {
+	authenicateDTO, err := CreateAuthenicateBody(email, password)
+	if err != nil {
+		return -1, "", err
+	}
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodPost, "/auth/login", bytes.NewBuffer([]byte(authenicateDTO)))
+	req.Header.Set("Content-Type", "application/json")
+	TestRouter.ServeHTTP(w, req)
+	return w.Code, w.Body.String(), nil
+}
+
+func (p *TestHttpClient) Verify(token any) (int, string, error) {
+	verificateDTO, err := CreateVerificationBody(token)
+	if err != nil {
+		return -1, "", err
+	}
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodPost, "/auth/verify", bytes.NewBuffer([]byte(verificateDTO)))
+	req.Header.Set("Content-Type", "application/json")
+	TestRouter.ServeHTTP(w, req)
+	return w.Code, w.Body.String(), nil
+}
+
 func ParseForJsonBody(paramName string, paramValue any) (string, error) {
 	result := ""
 	switch paramType := paramValue.(type) {
@@ -500,4 +532,43 @@ func CreateNotePutOrPostBody(text any, topic any, tagId any, userId any, state a
 	}
 	noteCreateDTO += "}"
 	return noteCreateDTO, nil
+}
+
+func CreateAuthenicateBody(email any, password any) (string, error) {
+	emailField, err := ParseForJsonBody("Email", email)
+	if err != nil {
+		return "", err
+	}
+	passwordField, err := ParseForJsonBody("Password", password)
+	if err != nil {
+		return "", err
+	}
+	result := "{"
+	if emailField != "" {
+		result += emailField + ","
+	}
+	if passwordField != "" {
+		result += passwordField + ","
+	}
+	if len(result) != 1 {
+		result = result[:len(result)-1]
+	}
+	result += "}"
+	return result, nil
+}
+
+func CreateVerificationBody(token any) (string, error) {
+	tokenField, err := ParseForJsonBody("Token", token)
+	if err != nil {
+		return "", err
+	}
+	result := "{"
+	if tokenField != "" {
+		result += tokenField + ","
+	}
+	if len(result) != 1 {
+		result = result[:len(result)-1]
+	}
+	result += "}"
+	return result, nil
 }
