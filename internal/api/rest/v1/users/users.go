@@ -91,7 +91,7 @@ func GetUsers(c *gin.Context) {
 	users, ok := data.([]entities.User)
 	if !ok {
 		c.JSON(http.StatusInternalServerError, "Unable to get users")
-		log.Printf("Unable to get to users : %s", "unable to assert result type")
+		log.Printf("Unable to get to users : %s", api.ERROR_ASSERT_RESULT_TYPE)
 		return
 	}
 
@@ -132,7 +132,7 @@ func GetUser(c *gin.Context) {
 	user, ok := data.(entities.User)
 	if !ok {
 		c.JSON(http.StatusInternalServerError, "Unable to get users")
-		log.Printf("Unable to get to users : %s", "unable to assert result type")
+		log.Printf("Unable to get to users : %s", api.ERROR_ASSERT_RESULT_TYPE)
 		return
 	}
 

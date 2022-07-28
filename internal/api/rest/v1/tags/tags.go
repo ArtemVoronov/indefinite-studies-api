@@ -69,17 +69,26 @@ func GetTags(c *gin.Context) {
 		offset = 0
 	}
 
-	db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+	data, err := db.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
 		tags, err := queries.GetTags(tx, ctx, limit, offset)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, "Unable to get tags")
-			log.Printf("Unable to get to tags : %s", err)
-			return err
-		}
-		result := &TagListDTO{Data: convertTags(tags), Count: len(tags), Offset: offset, Limit: limit}
-		c.JSON(http.StatusOK, result)
-		return err
+		return tags, err
 	})()
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, "Unable to get tags")
+		log.Printf("Unable to get to tags : %s", err)
+		return
+	}
+
+	tags, ok := data.([]entities.Tag)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, "Unable to get tags")
+		log.Printf("Unable to get to tags : %s", api.ERROR_ASSERT_RESULT_TYPE)
+		return
+	}
+
+	result := &TagListDTO{Data: convertTags(tags), Count: len(tags), Offset: offset, Limit: limit}
+	c.JSON(http.StatusOK, result)
 }
 
 func GetTag(c *gin.Context) {
@@ -97,20 +106,29 @@ func GetTag(c *gin.Context) {
 		return
 	}
 
-	db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+	data, err := db.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
 		tag, err := queries.GetTag(tx, ctx, tagId)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
-			} else {
-				c.JSON(http.StatusInternalServerError, "Unable to get tag")
-				log.Printf("Unable to get to tag : %s", err)
-			}
-			return err
-		}
-		c.JSON(http.StatusOK, convertTag(tag))
-		return err
+		return tag, err
 	})()
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
+		} else {
+			c.JSON(http.StatusInternalServerError, "Unable to get tag")
+			log.Printf("Unable to get to tag : %s", err)
+		}
+		return
+	}
+
+	tag, ok := data.(entities.Tag)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, "Unable to get tag")
+		log.Printf("Unable to get to tag : %s", api.ERROR_ASSERT_RESULT_TYPE)
+		return
+	}
+
+	c.JSON(http.StatusOK, convertTag(tag))
 }
 
 func CreateTag(c *gin.Context) {
@@ -132,21 +150,22 @@ func CreateTag(c *gin.Context) {
 		return
 	}
 
-	db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+	data, err := db.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
 		result, err := queries.CreateTag(tx, ctx, tag.Name, tag.State)
-		if err != nil || result == -1 {
-			if err.Error() == db.ErrorTagDuplicateKey.Error() {
-				c.JSON(http.StatusBadRequest, api.DUPLICATE_FOUND)
-			} else {
-				c.JSON(http.StatusInternalServerError, "Unable to create tag")
-				log.Printf("Unable to create tag : %s", err)
-			}
-			return err
-
-		}
-		c.JSON(http.StatusCreated, result)
-		return err
+		return result, err
 	})()
+
+	if err != nil || data == -1 {
+		if err.Error() == db.ErrorTagDuplicateKey.Error() {
+			c.JSON(http.StatusBadRequest, api.DUPLICATE_FOUND)
+		} else {
+			c.JSON(http.StatusInternalServerError, "Unable to create tag")
+			log.Printf("Unable to create tag : %s", err)
+		}
+		return
+
+	}
+	c.JSON(http.StatusCreated, data)
 }
 
 func UpdateTag(c *gin.Context) {
@@ -182,23 +201,24 @@ func UpdateTag(c *gin.Context) {
 		return
 	}
 
-	db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+	err := db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 		err := queries.UpdateTag(tx, ctx, tagId, tag.Name, tag.State)
-
-		if err != nil {
-			if err == sql.ErrNoRows {
-				c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
-			} else if err.Error() == db.ErrorTagDuplicateKey.Error() {
-				c.JSON(http.StatusBadRequest, api.DUPLICATE_FOUND)
-			} else {
-				c.JSON(http.StatusInternalServerError, "Unable to update tag")
-				log.Printf("Unable to update tag : %s", err)
-			}
-			return err
-		}
-		c.JSON(http.StatusOK, api.DONE)
 		return err
 	})()
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
+		} else if err.Error() == db.ErrorTagDuplicateKey.Error() {
+			c.JSON(http.StatusBadRequest, api.DUPLICATE_FOUND)
+		} else {
+			c.JSON(http.StatusInternalServerError, "Unable to update tag")
+			log.Printf("Unable to update tag : %s", err)
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, api.DONE)
 }
 
 func DeleteTag(c *gin.Context) {
@@ -216,19 +236,20 @@ func DeleteTag(c *gin.Context) {
 		return
 	}
 
-	db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+	err := db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 		err := queries.DeleteTag(tx, ctx, id)
-
-		if err != nil {
-			if err == sql.ErrNoRows {
-				c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
-			} else {
-				c.JSON(http.StatusInternalServerError, "Unable to delete tag")
-				log.Printf("Unable to delete tag: %s", err)
-			}
-			return err
-		}
-		c.JSON(http.StatusOK, api.DONE)
 		return err
 	})()
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
+		} else {
+			c.JSON(http.StatusInternalServerError, "Unable to delete tag")
+			log.Printf("Unable to delete tag: %s", err)
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, api.DONE)
 }
