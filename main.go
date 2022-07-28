@@ -13,6 +13,7 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/tasks"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/users"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/app"
+	"github.com/ArtemVoronov/indefinite-studies-api/internal/app/utils"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db"
 	"github.com/gin-gonic/gin"
 )
@@ -21,12 +22,11 @@ func main() {
 
 	app.InitEnv()
 	auth.Setup()
-	// apiUsers := app.GetApiUsers() // TODO clean
 	host := app.GetHost()
 
 	router := gin.Default()
 
-	router.Use(app.Cors())
+	router.Use(app.Cors(utils.EnvVar("CORS")))
 
 	// Global middleware
 	// Logger middleware will write the logs to gin.DefaultWriter even if you set with GIN_MODE=release.
@@ -46,37 +46,41 @@ func main() {
 	// TODO: add permission controller by user role and user state
 	// v1 := router.Group("/api/v1", gin.BasicAuth(apiUsers)) // TODO: add auth via jwt, update model accordingly
 	v1 := router.Group("/api/v1") // TODO: add auth via jwt, update model accordingly
+
+	v1.GET("/ping", ping.Ping)
+	v1.POST("/auth/login", auth.Authenicate)
+	v1.POST("/auth/refresh-token", auth.RefreshToken)
+	authorized := router.Group("/api/v1")
+	authorized.Use(app.AuthReqired())
 	{
-		v1.GET("/debug/vars", expvar.Handler())
-		v1.GET("/ping", ping.Ping)
+		authorized.GET("/debug/vars", expvar.Handler())
+		authorized.GET("/safe-ping", ping.SafePing)
 
-		v1.POST("/auth/login", auth.Authenicate)
-		v1.POST("/auth/verify", auth.Verify)
-		// TODO: add logout, signup, refresh token
+		// TODO: add signup
 
-		v1.GET("/tasks/", tasks.GetTasks)
-		v1.GET("/tasks/:id", tasks.GetTask)
-		v1.POST("/tasks/", tasks.CreateTask)
-		v1.PUT("/tasks/:id", tasks.UpdateTask)
-		v1.DELETE("/tasks/:id", tasks.DeleteTask)
+		authorized.GET("/tasks/", tasks.GetTasks)
+		authorized.GET("/tasks/:id", tasks.GetTask)
+		authorized.POST("/tasks/", tasks.CreateTask)
+		authorized.PUT("/tasks/:id", tasks.UpdateTask)
+		authorized.DELETE("/tasks/:id", tasks.DeleteTask)
 
-		v1.GET("/tags", tags.GetTags)
-		v1.GET("/tags/:id", tags.GetTag)
-		v1.POST("/tags", tags.CreateTag)
-		v1.PUT("/tags/:id", tags.UpdateTag)
-		v1.DELETE("/tags/:id", tags.DeleteTag)
+		authorized.GET("/tags", tags.GetTags)
+		authorized.GET("/tags/:id", tags.GetTag)
+		authorized.POST("/tags", tags.CreateTag)
+		authorized.PUT("/tags/:id", tags.UpdateTag)
+		authorized.DELETE("/tags/:id", tags.DeleteTag)
 
-		v1.GET("/users", users.GetUsers)
-		v1.GET("/users/:id", users.GetUser)
-		v1.POST("/users", users.CreateUser)
-		v1.PUT("/users/:id", users.UpdateUser)
-		v1.DELETE("/users/:id", users.DeleteUser)
+		authorized.GET("/users", users.GetUsers)
+		authorized.GET("/users/:id", users.GetUser)
+		authorized.POST("/users", users.CreateUser)
+		authorized.PUT("/users/:id", users.UpdateUser)
+		authorized.DELETE("/users/:id", users.DeleteUser)
 
-		v1.GET("/notes", notes.GetNotes)
-		v1.GET("/notes/:id", notes.GetNote)
-		v1.POST("/notes", notes.CreateNote)
-		v1.PUT("/notes/:id", notes.UpdateNote)
-		v1.DELETE("/notes/:id", notes.DeleteNote)
+		authorized.GET("/notes", notes.GetNotes)
+		authorized.GET("/notes/:id", notes.GetNote)
+		authorized.POST("/notes", notes.CreateNote)
+		authorized.PUT("/notes/:id", notes.UpdateNote)
+		authorized.DELETE("/notes/:id", notes.DeleteNote)
 	}
 
 	app.StartServer(host, router)

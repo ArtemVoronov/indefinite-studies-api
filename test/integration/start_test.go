@@ -17,6 +17,7 @@ import (
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/tags"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/tasks"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/users"
+	"github.com/ArtemVoronov/indefinite-studies-api/internal/app"
 
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db"
 	"github.com/gin-gonic/gin"
@@ -43,9 +44,15 @@ func TestMain(m *testing.M) {
 func SetupRouter() *gin.Engine {
 	r := gin.Default()
 
+	authorized := r.Group("/")
+	authorized.Use(app.AuthReqired())
+	{
+		authorized.GET("/safe-ping", ping.SafePing)
+	}
+
 	r.GET("/ping", ping.Ping)
 	r.POST("/auth/login", auth.Authenicate)
-	r.POST("/auth/verify", auth.Verify)
+	r.POST("/auth/refresh-token", auth.RefreshToken)
 
 	r.GET("/tasks", tasks.GetTasks)
 	r.GET("/tasks/:id", tasks.GetTask)

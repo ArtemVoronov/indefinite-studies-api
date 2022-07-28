@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/api"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/auth"
@@ -18,7 +19,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestApiAuthCreate(t *testing.T) {
+func TestApiAuthLogin(t *testing.T) {
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		user := utils.entityGenerators.GenerateUser(1)
 
@@ -46,8 +47,8 @@ func TestApiAuthCreate(t *testing.T) {
 		assert.NotEqual(t, "", result.RefreshToken)
 		assert.NotEqual(t, "", result.AccessTokenExpiredAt)
 		assert.NotEqual(t, "", result.RefreshTokenExpiredAt)
-		assert.Equal(t, 242, len(result.AccessToken))
-		assert.Equal(t, 242, len(result.RefreshToken))
+		assert.Equal(t, 202, len(result.AccessToken))
+		assert.Equal(t, 202, len(result.RefreshToken))
 
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 			record, err := queries.GetRefreshTokenByToken(tx, ctx, result.RefreshToken)
@@ -66,7 +67,74 @@ func TestApiAuthCreate(t *testing.T) {
 
 			return err
 		})()
+	})))
+	t.Run("RepeatAuthenication", RunWithRecreateDB((func(t *testing.T) {
+		user := utils.entityGenerators.GenerateUser(1)
 
+		httpStatusCode, body, err := testHttpClient.CreateUser(user.Login, user.Email, user.Password, user.Role, user.State)
+
+		assert.Nil(t, err)
+		assert.Equal(t, http.StatusCreated, httpStatusCode)
+		assert.Equal(t, strconv.Itoa(user.Id), body)
+
+		httpStatusCode, body, err = testHttpClient.Authenicate(user.Email, user.Password)
+
+		assert.Nil(t, err)
+		assert.Equal(t, http.StatusOK, httpStatusCode)
+
+		var authenication1 auth.AuthenicationResultDTO
+		err = json.Unmarshal([]byte(body), &authenication1)
+
+		assert.Nil(t, err)
+
+		time.Sleep(1 * time.Second) // tokens generated based on time.Now(), sometimes we have equal values
+
+		httpStatusCode, body, err = testHttpClient.Authenicate(user.Email, user.Password)
+
+		assert.Nil(t, err)
+		assert.Equal(t, http.StatusOK, httpStatusCode)
+
+		var authenication2 auth.AuthenicationResultDTO
+		err = json.Unmarshal([]byte(body), &authenication2)
+
+		assert.Nil(t, err)
+
+		assert.NotEqual(t, authenication1.AccessToken, authenication2.AccessToken)
+		assert.NotEqual(t, authenication1.RefreshToken, authenication2.RefreshToken)
+
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			_, err := queries.GetRefreshTokenByToken(tx, ctx, authenication1.RefreshToken)
+
+			assert.Equal(t, sql.ErrNoRows, err)
+
+			return err
+		})()
+
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			record, err := queries.GetRefreshTokenByToken(tx, ctx, authenication2.RefreshToken)
+
+			assert.NotNil(t, record)
+			assert.Equal(t, record.Token, authenication2.RefreshToken)
+			assert.Equal(t, record.UserId, user.Id)
+
+			return err
+		})()
+
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			_, err := queries.GetRefreshTokenByToken(tx, ctx, authenication1.AccessToken)
+
+			assert.Equal(t, sql.ErrNoRows, err)
+
+			return err
+		})()
+
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			_, err := queries.GetRefreshTokenByToken(tx, ctx, authenication2.AccessToken)
+
+			assert.Equal(t, sql.ErrNoRows, err)
+
+			return err
+		})()
 	})))
 	t.Run("WrongEmail", RunWithRecreateDB((func(t *testing.T) {
 		user := utils.entityGenerators.GenerateUser(1)
@@ -116,7 +184,7 @@ func TestApiAuthCreate(t *testing.T) {
 	})))
 }
 
-func TestApiAuthVerify(t *testing.T) {
+func TestApiAuthRefresh(t *testing.T) {
 	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
 		user := utils.entityGenerators.GenerateUser(1)
 
@@ -131,11 +199,142 @@ func TestApiAuthVerify(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, http.StatusOK, httpStatusCode)
 
-		var result auth.AuthenicationResultDTO
-		err = json.Unmarshal([]byte(body), &result)
+		var authenication1 auth.AuthenicationResultDTO
+		err = json.Unmarshal([]byte(body), &authenication1)
 
-		httpStatusCode, body, err = testHttpClient.Verify(result.AccessToken)
-		httpStatusCode, body, err = testHttpClient.Verify(result.RefreshToken)
+		assert.Nil(t, err)
 
+		time.Sleep(1 * time.Second) // tokens generated based on time.Now(), sometimes we have equal values
+
+		httpStatusCode, body, err = testHttpClient.RefreshToken(authenication1.RefreshToken)
+
+		assert.Nil(t, err)
+		assert.Equal(t, http.StatusOK, httpStatusCode)
+
+		var authenication2 auth.AuthenicationResultDTO
+		err = json.Unmarshal([]byte(body), &authenication2)
+
+		assert.Nil(t, err)
+
+		assert.NotEqual(t, authenication1.AccessToken, authenication2.AccessToken)
+		assert.NotEqual(t, authenication1.RefreshToken, authenication2.RefreshToken)
+
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			_, err := queries.GetRefreshTokenByToken(tx, ctx, authenication1.RefreshToken)
+
+			assert.Equal(t, sql.ErrNoRows, err)
+
+			return err
+		})()
+
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			record, err := queries.GetRefreshTokenByToken(tx, ctx, authenication2.RefreshToken)
+
+			assert.NotNil(t, record)
+			assert.Equal(t, record.Token, authenication2.RefreshToken)
+			assert.Equal(t, record.UserId, user.Id)
+
+			return err
+		})()
+
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			_, err := queries.GetRefreshTokenByToken(tx, ctx, authenication1.AccessToken)
+
+			assert.Equal(t, sql.ErrNoRows, err)
+
+			return err
+		})()
+
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			_, err := queries.GetRefreshTokenByToken(tx, ctx, authenication2.AccessToken)
+
+			assert.Equal(t, sql.ErrNoRows, err)
+
+			return err
+		})()
+
+	})))
+	t.Run("ExpiredRefreshToken", RunWithRecreateDB((func(t *testing.T) {
+		user := utils.entityGenerators.GenerateUser(1)
+
+		httpStatusCode, body, err := testHttpClient.CreateUser(user.Login, user.Email, user.Password, user.Role, user.State)
+
+		assert.Nil(t, err)
+		assert.Equal(t, http.StatusCreated, httpStatusCode)
+		assert.Equal(t, strconv.Itoa(user.Id), body)
+
+		httpStatusCode, body, err = testHttpClient.Authenicate(user.Email, user.Password)
+
+		assert.Nil(t, err)
+		assert.Equal(t, http.StatusOK, httpStatusCode)
+
+		var authenication1 auth.AuthenicationResultDTO
+		err = json.Unmarshal([]byte(body), &authenication1)
+
+		assert.Nil(t, err)
+
+		time.Sleep(10 * time.Second) // expected that .env.test has refresh token TTL in 10 seconds
+
+		httpStatusCode, body, err = testHttpClient.RefreshToken(authenication1.RefreshToken)
+
+		assert.Nil(t, err)
+		assert.Equal(t, http.StatusBadRequest, httpStatusCode)
+		assert.Equal(t, "\""+api.ERROR_TOKEN_IS_EXPIRED+"\"", body)
+	})))
+}
+
+func TestApiAuthAccess(t *testing.T) {
+	t.Run("ValidAccessToken", RunWithRecreateDB((func(t *testing.T) {
+		user := utils.entityGenerators.GenerateUser(1)
+
+		httpStatusCode, body, err := testHttpClient.CreateUser(user.Login, user.Email, user.Password, user.Role, user.State)
+
+		assert.Nil(t, err)
+		assert.Equal(t, http.StatusCreated, httpStatusCode)
+		assert.Equal(t, strconv.Itoa(user.Id), body)
+
+		httpStatusCode, body, err = testHttpClient.Authenicate(user.Email, user.Password)
+
+		assert.Nil(t, err)
+		assert.Equal(t, http.StatusOK, httpStatusCode)
+
+		var authenication1 auth.AuthenicationResultDTO
+		err = json.Unmarshal([]byte(body), &authenication1)
+
+		assert.Nil(t, err)
+
+		time.Sleep(1 * time.Second) // expected that .env.test has access token TTL in 10 seconds
+
+		httpStatusCode, body, err = testHttpClient.SafePing(authenication1.AccessToken)
+
+		assert.Nil(t, err)
+		assert.Equal(t, http.StatusOK, httpStatusCode)
+		assert.Equal(t, "\"Pong!\"", body)
+	})))
+	t.Run("ExpiredAccessToken", RunWithRecreateDB((func(t *testing.T) {
+		user := utils.entityGenerators.GenerateUser(1)
+
+		httpStatusCode, body, err := testHttpClient.CreateUser(user.Login, user.Email, user.Password, user.Role, user.State)
+
+		assert.Nil(t, err)
+		assert.Equal(t, http.StatusCreated, httpStatusCode)
+		assert.Equal(t, strconv.Itoa(user.Id), body)
+
+		httpStatusCode, body, err = testHttpClient.Authenicate(user.Email, user.Password)
+
+		assert.Nil(t, err)
+		assert.Equal(t, http.StatusOK, httpStatusCode)
+
+		var authenication1 auth.AuthenicationResultDTO
+		err = json.Unmarshal([]byte(body), &authenication1)
+
+		assert.Nil(t, err)
+
+		time.Sleep(10 * time.Second) // expected that .env.test has access token TTL in 10 seconds
+
+		httpStatusCode, body, err = testHttpClient.SafePing(authenication1.AccessToken)
+
+		assert.Nil(t, err)
+		assert.Equal(t, http.StatusUnauthorized, httpStatusCode)
 	})))
 }

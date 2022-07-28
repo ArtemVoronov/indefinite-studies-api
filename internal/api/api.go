@@ -11,4 +11,5 @@ const (
 	ERROR_ID_WRONG_FORMAT           string = "Wrong ID format. Expected number"
 	ERROR_ASSERT_RESULT_TYPE        string = "unable to assert result type"
 	ERROR_WRONG_PASSWORD_OR_EMAIL   string = "Wrong password or email"
+	ERROR_TOKEN_IS_EXPIRED          string = "Token is expired"
 )

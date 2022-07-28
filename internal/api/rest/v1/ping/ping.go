@@ -9,3 +9,7 @@ import (
 func Ping(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, "Pong!")
 }
+
+func SafePing(c *gin.Context) {
+	c.IndentedJSON(http.StatusOK, "Pong!")
+}

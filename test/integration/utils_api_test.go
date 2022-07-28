@@ -47,7 +47,12 @@ type NotesApi interface {
 
 type AuthApi interface {
 	Authenicate(email any, password any) (int, string, error)
-	Verify(token any) (int, string, error)
+	RefreshToken(refreshToken any) (int, string, error)
+}
+
+type PingApi interface {
+	Ping() (int, string, error)
+	SafePing() (int, string, error)
 }
 
 type TestApi interface {
@@ -56,19 +61,20 @@ type TestApi interface {
 	UsersApi
 	NotesApi
 	AuthApi
+	PingApi
 }
 
 type TestHttpClient struct {
 }
 
 func (p *TestHttpClient) CreateTask(name any, state any) (int, string, error) {
-	taskCreateDTO, err := CreateTaskPutOrPostBody(name, state)
+	body, err := CreateTaskPutOrPostBody(name, state)
 	if err != nil {
 		return -1, "", err
 	}
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPost, "/tasks", bytes.NewBuffer([]byte(taskCreateDTO)))
+	req, _ := http.NewRequest(http.MethodPost, "/tasks", bytes.NewBuffer([]byte(body)))
 	req.Header.Set("Content-Type", "application/json")
 	TestRouter.ServeHTTP(w, req)
 	return w.Code, w.Body.String(), nil
@@ -98,13 +104,13 @@ func (p *TestHttpClient) UpdateTask(id any, name any, state any) (int, string, e
 	if err != nil {
 		return -1, "", err
 	}
-	taskUpdateDTO, err := CreateTaskPutOrPostBody(name, state)
+	body, err := CreateTaskPutOrPostBody(name, state)
 	if err != nil {
 		return -1, "", err
 	}
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPut, "/tasks"+idParam, bytes.NewBuffer([]byte(taskUpdateDTO)))
+	req, _ := http.NewRequest(http.MethodPut, "/tasks"+idParam, bytes.NewBuffer([]byte(body)))
 	req.Header.Set("Content-Type", "application/json")
 	TestRouter.ServeHTTP(w, req)
 	return w.Code, w.Body.String(), nil
@@ -123,13 +129,13 @@ func (p *TestHttpClient) DeleteTask(id any) (int, string, error) {
 }
 
 func (p *TestHttpClient) CreateTag(name any, state any) (int, string, error) {
-	tagCreateDTO, err := CreateTagPutOrPostBody(name, state)
+	body, err := CreateTagPutOrPostBody(name, state)
 	if err != nil {
 		return -1, "", err
 	}
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPost, "/tags", bytes.NewBuffer([]byte(tagCreateDTO)))
+	req, _ := http.NewRequest(http.MethodPost, "/tags", bytes.NewBuffer([]byte(body)))
 	req.Header.Set("Content-Type", "application/json")
 	TestRouter.ServeHTTP(w, req)
 	return w.Code, w.Body.String(), nil
@@ -159,13 +165,13 @@ func (p *TestHttpClient) UpdateTag(id any, name any, state any) (int, string, er
 	if err != nil {
 		return -1, "", err
 	}
-	tagUpdateDTO, err := CreateTagPutOrPostBody(name, state)
+	body, err := CreateTagPutOrPostBody(name, state)
 	if err != nil {
 		return -1, "", err
 	}
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPut, "/tags"+idParam, bytes.NewBuffer([]byte(tagUpdateDTO)))
+	req, _ := http.NewRequest(http.MethodPut, "/tags"+idParam, bytes.NewBuffer([]byte(body)))
 	req.Header.Set("Content-Type", "application/json")
 	TestRouter.ServeHTTP(w, req)
 	return w.Code, w.Body.String(), nil
@@ -184,13 +190,13 @@ func (p *TestHttpClient) DeleteTag(id any) (int, string, error) {
 }
 
 func (p *TestHttpClient) CreateUser(login any, email any, password any, role any, state any) (int, string, error) {
-	userCreateDTO, err := CreateUserPutOrPostBody(login, email, password, role, state)
+	body, err := CreateUserPutOrPostBody(login, email, password, role, state)
 	if err != nil {
 		return -1, "", err
 	}
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPost, "/users", bytes.NewBuffer([]byte(userCreateDTO)))
+	req, _ := http.NewRequest(http.MethodPost, "/users", bytes.NewBuffer([]byte(body)))
 	req.Header.Set("Content-Type", "application/json")
 	TestRouter.ServeHTTP(w, req)
 	return w.Code, w.Body.String(), nil
@@ -220,13 +226,13 @@ func (p *TestHttpClient) UpdateUser(id any, login any, email any, password any, 
 	if err != nil {
 		return -1, "", err
 	}
-	userUpdateDTO, err := CreateUserPutOrPostBody(login, email, password, role, state)
+	body, err := CreateUserPutOrPostBody(login, email, password, role, state)
 	if err != nil {
 		return -1, "", err
 	}
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPut, "/users"+idParam, bytes.NewBuffer([]byte(userUpdateDTO)))
+	req, _ := http.NewRequest(http.MethodPut, "/users"+idParam, bytes.NewBuffer([]byte(body)))
 	req.Header.Set("Content-Type", "application/json")
 	TestRouter.ServeHTTP(w, req)
 	return w.Code, w.Body.String(), nil
@@ -245,13 +251,13 @@ func (p *TestHttpClient) DeleteUser(id any) (int, string, error) {
 }
 
 func (p *TestHttpClient) CreateNote(text any, topic any, tagId any, userId any, state any) (int, string, error) {
-	noteCreateDTO, err := CreateNotePutOrPostBody(text, topic, tagId, userId, state)
+	body, err := CreateNotePutOrPostBody(text, topic, tagId, userId, state)
 	if err != nil {
 		return -1, "", err
 	}
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPost, "/notes", bytes.NewBuffer([]byte(noteCreateDTO)))
+	req, _ := http.NewRequest(http.MethodPost, "/notes", bytes.NewBuffer([]byte(body)))
 	req.Header.Set("Content-Type", "application/json")
 	TestRouter.ServeHTTP(w, req)
 	return w.Code, w.Body.String(), nil
@@ -281,13 +287,13 @@ func (p *TestHttpClient) UpdateNote(id any, text any, topic any, tagId any, user
 	if err != nil {
 		return -1, "", err
 	}
-	noteUpdateDTO, err := CreateNotePutOrPostBody(text, topic, tagId, userId, state)
+	body, err := CreateNotePutOrPostBody(text, topic, tagId, userId, state)
 	if err != nil {
 		return -1, "", err
 	}
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPut, "/notes"+idParam, bytes.NewBuffer([]byte(noteUpdateDTO)))
+	req, _ := http.NewRequest(http.MethodPut, "/notes"+idParam, bytes.NewBuffer([]byte(body)))
 	req.Header.Set("Content-Type", "application/json")
 	TestRouter.ServeHTTP(w, req)
 	return w.Code, w.Body.String(), nil
@@ -306,27 +312,44 @@ func (p *TestHttpClient) DeleteNote(id any) (int, string, error) {
 }
 
 func (p *TestHttpClient) Authenicate(email any, password any) (int, string, error) {
-	authenicateDTO, err := CreateAuthenicateBody(email, password)
+	body, err := CreateAuthenicateBody(email, password)
 	if err != nil {
 		return -1, "", err
 	}
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPost, "/auth/login", bytes.NewBuffer([]byte(authenicateDTO)))
+	req, _ := http.NewRequest(http.MethodPost, "/auth/login", bytes.NewBuffer([]byte(body)))
 	req.Header.Set("Content-Type", "application/json")
 	TestRouter.ServeHTTP(w, req)
 	return w.Code, w.Body.String(), nil
 }
 
-func (p *TestHttpClient) Verify(token any) (int, string, error) {
-	verificateDTO, err := CreateVerificationBody(token)
+func (p *TestHttpClient) RefreshToken(token any) (int, string, error) {
+	body, err := CreateRefreshTokenBody(token)
 	if err != nil {
 		return -1, "", err
 	}
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPost, "/auth/verify", bytes.NewBuffer([]byte(verificateDTO)))
+	req, _ := http.NewRequest(http.MethodPost, "/auth/refresh-token", bytes.NewBuffer([]byte(body)))
 	req.Header.Set("Content-Type", "application/json")
+	TestRouter.ServeHTTP(w, req)
+	return w.Code, w.Body.String(), nil
+}
+
+func (p *TestHttpClient) Ping() (int, string, error) {
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/ping", nil)
+	req.Header.Set("Content-Type", "application/json")
+	TestRouter.ServeHTTP(w, req)
+	return w.Code, w.Body.String(), nil
+}
+
+func (p *TestHttpClient) SafePing(accessToken string) (int, string, error) {
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/safe-ping", nil)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+accessToken)
 	TestRouter.ServeHTTP(w, req)
 	return w.Code, w.Body.String(), nil
 }
@@ -406,18 +429,18 @@ func CreateTaskPutOrPostBody(name any, state any) (string, error) {
 		return "", err
 	}
 
-	taskCreateDTO := "{"
+	result := "{"
 	if nameField != "" {
-		taskCreateDTO += nameField + ","
+		result += nameField + ","
 	}
 	if stateField != "" {
-		taskCreateDTO += stateField + ","
+		result += stateField + ","
 	}
-	if len(taskCreateDTO) != 1 {
-		taskCreateDTO = taskCreateDTO[:len(taskCreateDTO)-1]
+	if len(result) != 1 {
+		result = result[:len(result)-1]
 	}
-	taskCreateDTO += "}"
-	return taskCreateDTO, nil
+	result += "}"
+	return result, nil
 }
 
 func CreateTagPutOrPostBody(name any, state any) (string, error) {
@@ -430,18 +453,18 @@ func CreateTagPutOrPostBody(name any, state any) (string, error) {
 		return "", err
 	}
 
-	tagCreateDTO := "{"
+	result := "{"
 	if nameField != "" {
-		tagCreateDTO += nameField + ","
+		result += nameField + ","
 	}
 	if stateField != "" {
-		tagCreateDTO += stateField + ","
+		result += stateField + ","
 	}
-	if len(tagCreateDTO) != 1 {
-		tagCreateDTO = tagCreateDTO[:len(tagCreateDTO)-1]
+	if len(result) != 1 {
+		result = result[:len(result)-1]
 	}
-	tagCreateDTO += "}"
-	return tagCreateDTO, nil
+	result += "}"
+	return result, nil
 }
 
 func CreateUserPutOrPostBody(login any, email any, password any, role any, state any) (string, error) {
@@ -466,27 +489,27 @@ func CreateUserPutOrPostBody(login any, email any, password any, role any, state
 		return "", err
 	}
 
-	userCreateDTO := "{"
+	result := "{"
 	if loginField != "" {
-		userCreateDTO += loginField + ","
+		result += loginField + ","
 	}
 	if emailField != "" {
-		userCreateDTO += emailField + ","
+		result += emailField + ","
 	}
 	if passwordField != "" {
-		userCreateDTO += passwordField + ","
+		result += passwordField + ","
 	}
 	if roleField != "" {
-		userCreateDTO += roleField + ","
+		result += roleField + ","
 	}
 	if stateField != "" {
-		userCreateDTO += stateField + ","
+		result += stateField + ","
 	}
-	if len(userCreateDTO) != 1 {
-		userCreateDTO = userCreateDTO[:len(userCreateDTO)-1]
+	if len(result) != 1 {
+		result = result[:len(result)-1]
 	}
-	userCreateDTO += "}"
-	return userCreateDTO, nil
+	result += "}"
+	return result, nil
 }
 
 func CreateNotePutOrPostBody(text any, topic any, tagId any, userId any, state any) (string, error) {
@@ -511,27 +534,27 @@ func CreateNotePutOrPostBody(text any, topic any, tagId any, userId any, state a
 		return "", err
 	}
 
-	noteCreateDTO := "{"
+	result := "{"
 	if textField != "" {
-		noteCreateDTO += textField + ","
+		result += textField + ","
 	}
 	if topicField != "" {
-		noteCreateDTO += topicField + ","
+		result += topicField + ","
 	}
 	if tagIdField != "" {
-		noteCreateDTO += tagIdField + ","
+		result += tagIdField + ","
 	}
 	if userIdField != "" {
-		noteCreateDTO += userIdField + ","
+		result += userIdField + ","
 	}
 	if stateField != "" {
-		noteCreateDTO += stateField + ","
+		result += stateField + ","
 	}
-	if len(noteCreateDTO) != 1 {
-		noteCreateDTO = noteCreateDTO[:len(noteCreateDTO)-1]
+	if len(result) != 1 {
+		result = result[:len(result)-1]
 	}
-	noteCreateDTO += "}"
-	return noteCreateDTO, nil
+	result += "}"
+	return result, nil
 }
 
 func CreateAuthenicateBody(email any, password any) (string, error) {
@@ -557,14 +580,14 @@ func CreateAuthenicateBody(email any, password any) (string, error) {
 	return result, nil
 }
 
-func CreateVerificationBody(token any) (string, error) {
-	tokenField, err := ParseForJsonBody("Token", token)
+func CreateRefreshTokenBody(token any) (string, error) {
+	refreshTokenField, err := ParseForJsonBody("RefreshToken", token)
 	if err != nil {
 		return "", err
 	}
 	result := "{"
-	if tokenField != "" {
-		result += tokenField + ","
+	if refreshTokenField != "" {
+		result += refreshTokenField + ","
 	}
 	if len(result) != 1 {
 		result = result[:len(result)-1]
