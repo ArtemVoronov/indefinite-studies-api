@@ -77,17 +77,26 @@ func GetUsers(c *gin.Context) {
 		offset = 0
 	}
 
-	db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+	data, err := db.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
 		users, err := queries.GetUsers(tx, ctx, limit, offset)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, "Unable to get users")
-			log.Printf("Unable to get to users : %s", err)
-			return err
-		}
-		result := &UserListDTO{Data: convertUsers(users), Count: len(users), Offset: offset, Limit: limit}
-		c.JSON(http.StatusOK, result)
-		return err
+		return users, err
 	})()
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, "Unable to get users")
+		log.Printf("Unable to get to users : %s", err)
+		return
+	}
+
+	users, ok := data.([]entities.User)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, "Unable to get users")
+		log.Printf("Unable to get to users : %s", "unable to assert result type")
+		return
+	}
+
+	result := &UserListDTO{Data: convertUsers(users), Count: len(users), Offset: offset, Limit: limit}
+	c.JSON(http.StatusOK, result)
 }
 
 func GetUser(c *gin.Context) {
@@ -105,20 +114,29 @@ func GetUser(c *gin.Context) {
 		return
 	}
 
-	db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+	data, err := db.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
 		user, err := queries.GetUser(tx, ctx, userId)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
-			} else {
-				c.JSON(http.StatusInternalServerError, "Unable to get user")
-				log.Printf("Unable to get to user : %s", err)
-			}
-			return err
-		}
-		c.JSON(http.StatusOK, convertUser(user))
-		return err
+		return user, err
 	})()
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
+		} else {
+			c.JSON(http.StatusInternalServerError, "Unable to get user")
+			log.Printf("Unable to get to user : %s", err)
+		}
+		return
+	}
+
+	user, ok := data.(entities.User)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, "Unable to get users")
+		log.Printf("Unable to get to users : %s", "unable to assert result type")
+		return
+	}
+
+	c.JSON(http.StatusOK, convertUser(user))
 }
 
 func CreateUser(c *gin.Context) {
@@ -146,21 +164,22 @@ func CreateUser(c *gin.Context) {
 		return
 	}
 
-	db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+	data, err := db.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
 		result, err := queries.CreateUser(tx, ctx, user.Login, user.Email, utils.CreateSHA512HashHexEncoded(user.Password), user.Role, user.State)
-		if err != nil || result == -1 {
-			if err.Error() == db.ErrorUserDuplicateKey.Error() {
-				c.JSON(http.StatusBadRequest, api.DUPLICATE_FOUND)
-			} else {
-				c.JSON(http.StatusInternalServerError, "Unable to create user")
-				log.Printf("Unable to create user : %s", err)
-			}
-			return err
-
-		}
-		c.JSON(http.StatusCreated, result)
-		return err
+		return result, err
 	})()
+
+	if err != nil || data == -1 {
+		if err.Error() == db.ErrorUserDuplicateKey.Error() {
+			c.JSON(http.StatusBadRequest, api.DUPLICATE_FOUND)
+		} else {
+			c.JSON(http.StatusInternalServerError, "Unable to create user")
+			log.Printf("Unable to create user : %s", err)
+		}
+		return
+	}
+
+	c.JSON(http.StatusCreated, data)
 }
 
 // TODO: add optional field updating (field is not reqired and missed -> do not update it)
@@ -206,23 +225,24 @@ func UpdateUser(c *gin.Context) {
 	// TODO: check password hash
 	// TODO: add route for changing password
 	// TODO: add route for restoring password
-	db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+	err := db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 		err := queries.UpdateUser(tx, ctx, userId, user.Login, user.Email, utils.CreateSHA512HashHexEncoded(user.Password), user.Role, user.State)
-
-		if err != nil {
-			if err == sql.ErrNoRows {
-				c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
-			} else if err.Error() == db.ErrorUserDuplicateKey.Error() {
-				c.JSON(http.StatusBadRequest, api.DUPLICATE_FOUND)
-			} else {
-				c.JSON(http.StatusInternalServerError, "Unable to update user")
-				log.Printf("Unable to update user : %s", err)
-			}
-			return err
-		}
-		c.JSON(http.StatusOK, api.DONE)
 		return err
 	})()
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
+		} else if err.Error() == db.ErrorUserDuplicateKey.Error() {
+			c.JSON(http.StatusBadRequest, api.DUPLICATE_FOUND)
+		} else {
+			c.JSON(http.StatusInternalServerError, "Unable to update user")
+			log.Printf("Unable to update user : %s", err)
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, api.DONE)
 }
 
 func DeleteUser(c *gin.Context) {
@@ -240,19 +260,20 @@ func DeleteUser(c *gin.Context) {
 		return
 	}
 
-	db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+	err := db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 		err := queries.DeleteUser(tx, ctx, id)
-
-		if err != nil {
-			if err == sql.ErrNoRows {
-				c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
-			} else {
-				c.JSON(http.StatusInternalServerError, "Unable to delete user")
-				log.Printf("Unable to delete user: %s", err)
-			}
-			return err
-		}
-		c.JSON(http.StatusOK, api.DONE)
 		return err
 	})()
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
+		} else {
+			c.JSON(http.StatusInternalServerError, "Unable to delete user")
+			log.Printf("Unable to delete user: %s", err)
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, api.DONE)
 }

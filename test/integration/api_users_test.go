@@ -68,8 +68,9 @@ func TestApiUserGet(t *testing.T) {
 			"\"State\":\"" + state + "\"" +
 			"}"
 
-		httpStatusCode, body, _ := testHttpClient.CreateUser(login, email, password, role, state)
+		httpStatusCode, body, err := testHttpClient.CreateUser(login, email, password, role, state)
 
+		assert.Nil(t, err)
 		assert.Equal(t, http.StatusCreated, httpStatusCode)
 		assert.Equal(t, id, body)
 
