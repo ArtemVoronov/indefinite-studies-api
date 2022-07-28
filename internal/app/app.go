@@ -69,14 +69,6 @@ func GetHost() string {
 	return host
 }
 
-func GetApiUsers() gin.Accounts {
-	apiKey := utils.EnvVar("AUTH_USERNAME")
-	apiAuthUser := utils.EnvVar("AUTH_PASSWORD")
-
-	apiUsers := gin.Accounts{apiKey: apiAuthUser}
-	return apiUsers
-}
-
 func StartServer(host string, router *gin.Engine) {
 	srv := &http.Server{
 		Addr:    host,
