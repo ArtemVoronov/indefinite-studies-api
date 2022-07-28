@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/entities"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db/queries"
@@ -56,6 +57,17 @@ const (
 
 	TEST_NOTE_TEXT_TEMPLATE  string = "Test text "
 	TEST_NOTE_TOPIC_TEMPLATE string = "Test topic "
+
+	TEST_REFRESH_TOKEN_TEMPLATE  string = "Token "
+	TEST_REFRESH_TOKEN_1                = "Token 1"
+	TEST_REFRESH_TOKEN_2                = "Token 2"
+	TEST_REFRESH_TOKEN_USER_ID_1        = 1
+	TEST_REFRESH_TOKEN_USER_ID_2        = 2
+)
+
+var (
+	TEST_REFRESH_TOKEN_EXPIRE_AT_1 = time.Now().Add(time.Hour * 2)
+	TEST_REFRESH_TOKEN_EXPIRE_AT_2 = time.Now().Add(time.Hour * 1)
 )
 
 type TestAsserts struct {
@@ -137,6 +149,11 @@ func (p *TestAsserts) AssertEqualNoteArrays(t *testing.T, expected []entities.No
 	}
 }
 
+func (p *TestAsserts) AssertEqualRefreshTokens(t *testing.T, expected entities.RefreshToken, actual entities.RefreshToken) {
+	assert.Equal(t, expected.UserId, actual.UserId)
+	assert.Equal(t, expected.Token, actual.Token)
+}
+
 type TestEntityGenerators struct {
 }
 
@@ -198,6 +215,14 @@ func (p *TestEntityGenerators) GenerateUser(id int) entities.User {
 		Password: utils.entityGenerators.GenerateUserPassword(TEST_USER_PASSORD_TEMPLATE, id),
 		Role:     TEST_USER_ROLE_1,
 		State:    TEST_USER_STATE_1,
+	}
+}
+
+func (p *TestEntityGenerators) GenerateRefreshToken(id int) entities.RefreshToken {
+	return entities.RefreshToken{
+		UserId:   id,
+		Token:    TEST_REFRESH_TOKEN_TEMPLATE + strconv.Itoa(id),
+		ExpireAt: time.Now().Add(time.Minute * 30),
 	}
 }
 
