@@ -1,4 +1,4 @@
-# Building and running the Docker images
+# How to build and run
 1. Set environment vars in the config `.env` e.g.:
 ```
 #common settings
@@ -19,6 +19,11 @@ DATABASE_URL=jdbc:postgresql://postgres:5432/indefinite_studies_api_db
 #basic auth
 AUTH_PASSWORD=password
 AUTH_USERNAME=user
+
+#jwt auth:
+JWT_SIGN=secretsign
+JWT_DURATION_IN_MINUTES=15
+JWT_ISSUER=principalname
 ```
 2. Check `docker-compose.yml` is appropriate to config that you are going to use (e.g.`docker-compose config`)
 3. Build images: `docker-compose  build`

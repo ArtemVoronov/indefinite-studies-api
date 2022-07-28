@@ -7,18 +7,52 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
+	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/auth"
+	"github.com/ArtemVoronov/indefinite-studies-api/internal/app/utils"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
 
-func Cors() gin.HandlerFunc {
-	// TODO: for release add appropiate domains
+func Cors(cors string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.Writer.Header().Add("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Add("Access-Control-Allow-Origin", cors)
+		c.Next()
+	}
+}
+
+func AuthReqired() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
+		// fmt.Println("---------------AuthReqired---------------")
+		// fmt.Printf("header: %v\n", header)
+		// fmt.Println("---------------AuthReqired---------------")
+		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer") {
+			c.JSON(http.StatusUnauthorized, "Unauthorized")
+			c.Abort()
+			return
+		}
+
+		token := authHeader[len("Bearer "):]
+		validationResult, err := auth.Verify(token)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, "Internal Server Error")
+			log.Printf("error during verifying access token: %v\n", err)
+			c.Abort()
+			return
+		}
+
+		if (*validationResult).IsExpired {
+			c.JSON(http.StatusUnauthorized, "Unauthorized")
+			c.Abort()
+			return
+		}
+
 		c.Next()
 	}
 }
@@ -30,24 +64,15 @@ func InitEnv() {
 }
 
 func GetHost() string {
-	port, portExists := os.LookupEnv("APP_PORT")
-	if !portExists {
-		port = "3000"
-	}
+	port := utils.EnvVarDefault("APP_PORT", "3000")
 	host := ":" + port
 	return host
 }
 
 func GetApiUsers() gin.Accounts {
-	apiKey, apiKeyExists := os.LookupEnv("AUTH_USERNAME")
-	if !apiKeyExists {
-		log.Fatalf("Missed enviroment variable: %s. Check the .env file or OS enviroment vars", "AUTH_USERNAME")
-	}
+	apiKey := utils.EnvVar("AUTH_USERNAME")
+	apiAuthUser := utils.EnvVar("AUTH_PASSWORD")
 
-	apiAuthUser, apiAuthUserExists := os.LookupEnv("AUTH_PASSWORD")
-	if !apiAuthUserExists {
-		log.Fatalf("Missed enviroment variable: %s. Check the .env file or OS enviroment vars", "AUTH_PASSWORD")
-	}
 	apiUsers := gin.Accounts{apiKey: apiAuthUser}
 	return apiUsers
 }

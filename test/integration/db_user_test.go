@@ -388,3 +388,52 @@ func TestDBUserDelete(t *testing.T) {
 		})()
 	})))
 }
+
+func TestDBUserCredentials(t *testing.T) {
+	t.Run("NotFoundCase", RunWithRecreateDB((func(t *testing.T) {
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			userId, isValid, err := queries.IsValidCredentials(tx, ctx, TEST_USER_EMAIL_1, TEST_USER_PASSWORD_1)
+
+			assert.Equal(t, -1, userId)
+			assert.Equal(t, false, isValid)
+			assert.Equal(t, sql.ErrNoRows, err)
+			return err
+		})()
+	})))
+	t.Run("BasicCase", RunWithRecreateDB((func(t *testing.T) {
+		user := utils.entityGenerators.GenerateUser(1)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			userId, err := queries.CreateUser(tx, ctx, user.Login, user.Email, user.Password, user.Role, user.State)
+
+			assert.Nil(t, err)
+			assert.Equal(t, user.Id, userId)
+
+			return err
+		})()
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			userId, isValid, err := queries.IsValidCredentials(tx, ctx, user.Email, user.Password)
+
+			assert.Equal(t, user.Id, userId)
+			assert.Equal(t, true, isValid)
+			return err
+		})()
+	})))
+	t.Run("WrongPassword", RunWithRecreateDB((func(t *testing.T) {
+		user := utils.entityGenerators.GenerateUser(1)
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			userId, err := queries.CreateUser(tx, ctx, user.Login, user.Email, user.Password, user.Role, user.State)
+
+			assert.Nil(t, err)
+			assert.Equal(t, user.Id, userId)
+
+			return err
+		})()
+		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+			userId, isValid, err := queries.IsValidCredentials(tx, ctx, user.Email, user.Password+"some_suffix")
+
+			assert.Equal(t, user.Id, userId)
+			assert.Equal(t, false, isValid)
+			return err
+		})()
+	})))
+}

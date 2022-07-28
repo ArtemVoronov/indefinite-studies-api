@@ -60,6 +60,23 @@ func GetUser(tx *sql.Tx, ctx context.Context, id int) (entities.User, error) {
 	return user, nil
 }
 
+func IsValidCredentials(tx *sql.Tx, ctx context.Context, email string, passwordHash string) (int, bool, error) {
+	id := -1
+	var isValid bool
+
+	err := tx.QueryRowContext(ctx, "SELECT id, $2 = password FROM users WHERE email = $1 and state != $3 ", email, passwordHash, entities.USER_STATE_DELETED).
+		Scan(&id, &isValid)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return id, isValid, err
+		} else {
+			return id, isValid, fmt.Errorf("error at checking credentials for email '%v' from db, case after QueryRow.Scan: %s", email, err)
+		}
+	}
+
+	return id, isValid, nil
+}
+
 func CreateUser(tx *sql.Tx, ctx context.Context, login string, email string, password string, role string, state string) (int, error) {
 	lastInsertId := -1
 

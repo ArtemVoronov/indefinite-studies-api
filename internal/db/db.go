@@ -6,11 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"os"
 	"strconv"
 	"sync"
 	"time"
 
+	"github.com/ArtemVoronov/indefinite-studies-api/internal/app/utils"
 	_ "github.com/lib/pq"
 )
 
@@ -73,11 +73,7 @@ func createDatabase() *sql.DB {
 	dbEnvVars := [6]string{"DATABASE_HOST", "DATABASE_PORT", "DATABASE_USER", "DATABASE_PASSWORD", "DATABASE_NAME", "DATABASE_SSL_MODE"}
 	var variables []string
 	for _, element := range dbEnvVars {
-
-		value, variableExists := os.LookupEnv(element)
-		if !variableExists {
-			log.Fatalf("Missed enviroment variable: %s. Check the .env file or OS enviroment vars", element)
-		}
+		value := utils.EnvVar(element)
 		variables = append(variables, value)
 	}
 
@@ -87,21 +83,18 @@ func createDatabase() *sql.DB {
 		log.Fatalf("Unable to connect to database : %s", err)
 	}
 
-	log.Printf("----- Database service setup succeed. Database name: %s -----", variables[4])
+	// log.Printf("----- Database service setup succeed. Database name: %s -----", variables[4])
 
 	return result
 }
 
 func getDefaultQueryTimeout() time.Duration {
-	valueStr, variableExists := os.LookupEnv("DATABASE_QUERY_DEFAULT_TIMEOUT_IN_SECONDS")
-	if !variableExists {
-		return 30 * time.Second
-	}
+	valueStr := utils.EnvVarDefault("DATABASE_QUERY_TIMEOUT_IN_SECONDS", "30")
 
 	valueInt, err := strconv.Atoi(valueStr)
 
 	if err != nil {
-		log.Printf("Unable to read 'DATABASE_QUERY_DEFAULT_TIMEOUT_IN_SECONDS' from config, using default value for 30 seconds")
+		log.Printf("Unable to read 'DATABASE_QUERY_TIMEOUT_IN_SECONDS' from config, using default value for 30 seconds")
 		return 30 * time.Second
 	}
 

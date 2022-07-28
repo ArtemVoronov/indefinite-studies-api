@@ -11,11 +11,13 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/auth"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/notes"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/ping"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/tags"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/tasks"
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/api/rest/v1/users"
+	"github.com/ArtemVoronov/indefinite-studies-api/internal/app"
 
 	"github.com/ArtemVoronov/indefinite-studies-api/internal/db"
 	"github.com/gin-gonic/gin"
@@ -42,7 +44,15 @@ func TestMain(m *testing.M) {
 func SetupRouter() *gin.Engine {
 	r := gin.Default()
 
+	authorized := r.Group("/")
+	authorized.Use(app.AuthReqired())
+	{
+		authorized.GET("/safe-ping", ping.SafePing)
+	}
+
 	r.GET("/ping", ping.Ping)
+	r.POST("/auth/login", auth.Authenicate)
+	r.POST("/auth/refresh-token", auth.RefreshToken)
 
 	r.GET("/tasks", tasks.GetTasks)
 	r.GET("/tasks/:id", tasks.GetTask)
@@ -91,7 +101,7 @@ func RecreateTestDB() {
 	_ /*stdout*/, err := cmd.Output()
 
 	if err != nil {
-		fmt.Println(err.Error())
+		fmt.Printf("error during recreating test DB: %v\n", err.Error())
 		return
 	}
 
@@ -112,6 +122,7 @@ func RunWithRecreateDB(f TestFunc) func(t *testing.T) {
 
 func Setup() {
 	InitTestEnv()
+	auth.Setup()
 	db.GetInstance()
 }
 

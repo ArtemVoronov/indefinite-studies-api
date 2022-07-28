@@ -78,17 +78,26 @@ func GetNotes(c *gin.Context) {
 		offset = 0
 	}
 
-	db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+	data, err := db.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
 		notes, err := queries.GetNotes(tx, ctx, limit, offset)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, "Unable to get notes")
-			log.Printf("Unable to get to notes : %s", err)
-			return err
-		}
-		result := &NoteListDTO{Data: convertNotes(notes), Count: len(notes), Offset: offset, Limit: limit}
-		c.JSON(http.StatusOK, result)
-		return err
+		return notes, err
 	})()
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, "Unable to get notes")
+		log.Printf("Unable to get to notes : %s", err)
+		return
+	}
+
+	notes, ok := data.([]entities.Note)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, "Unable to get notes")
+		log.Printf("Unable to get to notes : %s", api.ERROR_ASSERT_RESULT_TYPE)
+		return
+	}
+
+	result := &NoteListDTO{Data: convertNotes(notes), Count: len(notes), Offset: offset, Limit: limit}
+	c.JSON(http.StatusOK, result)
 }
 
 func GetNote(c *gin.Context) {
@@ -106,20 +115,29 @@ func GetNote(c *gin.Context) {
 		return
 	}
 
-	db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+	data, err := db.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
 		note, err := queries.GetNote(tx, ctx, noteId)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
-			} else {
-				c.JSON(http.StatusInternalServerError, "Unable to get note")
-				log.Printf("Unable to get to note : %s", err)
-			}
-			return err
-		}
-		c.JSON(http.StatusOK, convertNote(note))
-		return err
+		return note, err
 	})()
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
+		} else {
+			c.JSON(http.StatusInternalServerError, "Unable to get note")
+			log.Printf("Unable to get to note : %s", err)
+		}
+		return
+	}
+
+	note, ok := data.(entities.Note)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, "Unable to get note")
+		log.Printf("Unable to get to note : %s", api.ERROR_ASSERT_RESULT_TYPE)
+		return
+	}
+
+	c.JSON(http.StatusOK, convertNote(note))
 }
 
 func CreateNote(c *gin.Context) {
@@ -141,17 +159,18 @@ func CreateNote(c *gin.Context) {
 		return
 	}
 
-	db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+	data, err := db.Tx(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) (any, error) {
 		result, err := queries.CreateNote(tx, ctx, note.Text, note.Topic, note.TagId, note.UserId, note.State)
-		if err != nil || result == -1 {
-			c.JSON(http.StatusInternalServerError, "Unable to create note")
-			log.Printf("Unable to create note : %s", err)
-			return err
-
-		}
-		c.JSON(http.StatusCreated, result)
-		return err
+		return result, err
 	})()
+
+	if err != nil || data == -1 {
+		c.JSON(http.StatusInternalServerError, "Unable to create note")
+		log.Printf("Unable to create note : %s", err)
+		return
+	}
+
+	c.JSON(http.StatusCreated, data)
 }
 
 // TODO: add optional field updating (field is not reqired and missed -> do not update it)
@@ -188,21 +207,22 @@ func UpdateNote(c *gin.Context) {
 		return
 	}
 
-	db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+	err := db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 		err := queries.UpdateNote(tx, ctx, noteId, note.Text, note.Topic, note.TagId, note.UserId, note.State)
-
-		if err != nil {
-			if err == sql.ErrNoRows {
-				c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
-			} else {
-				c.JSON(http.StatusInternalServerError, "Unable to update note")
-				log.Printf("Unable to update note : %s", err)
-			}
-			return err
-		}
-		c.JSON(http.StatusOK, api.DONE)
 		return err
 	})()
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
+		} else {
+			c.JSON(http.StatusInternalServerError, "Unable to update note")
+			log.Printf("Unable to update note : %s", err)
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, api.DONE)
 }
 
 func DeleteNote(c *gin.Context) {
@@ -220,19 +240,20 @@ func DeleteNote(c *gin.Context) {
 		return
 	}
 
-	db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
+	err := db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 		err := queries.DeleteNote(tx, ctx, id)
-
-		if err != nil {
-			if err == sql.ErrNoRows {
-				c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
-			} else {
-				c.JSON(http.StatusInternalServerError, "Unable to delete note")
-				log.Printf("Unable to delete note: %s", err)
-			}
-			return err
-		}
-		c.JSON(http.StatusOK, api.DONE)
 		return err
 	})()
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, api.PAGE_NOT_FOUND)
+		} else {
+			c.JSON(http.StatusInternalServerError, "Unable to delete note")
+			log.Printf("Unable to delete note: %s", err)
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, api.DONE)
 }
