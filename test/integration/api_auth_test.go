@@ -47,8 +47,9 @@ func TestApiAuthLogin(t *testing.T) {
 		assert.NotEqual(t, "", result.RefreshToken)
 		assert.NotEqual(t, "", result.AccessTokenExpiredAt)
 		assert.NotEqual(t, "", result.RefreshTokenExpiredAt)
-		assert.Equal(t, 202, len(result.AccessToken))
-		assert.Equal(t, 202, len(result.RefreshToken))
+		assert.Equal(t, 236, len(result.AccessToken))
+		assert.Equal(t, 238, len(result.RefreshToken))
+		assert.NotEqual(t, result.AccessToken, result.RefreshTokenExpiredAt)
 
 		db.TxVoid(func(tx *sql.Tx, ctx context.Context, cancel context.CancelFunc) error {
 			record, err := queries.GetRefreshTokenByToken(tx, ctx, result.RefreshToken)

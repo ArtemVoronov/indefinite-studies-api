@@ -175,12 +175,12 @@ func generateNewTokenPair(userId int) (*AuthenicationResultDTO, error) {
 	expireAtForAccessToken := jwt.NewNumericDate(time.Now().Add(accessTokenDuration))
 	expireAtForRefreshToken := jwt.NewNumericDate(time.Now().Add(refreshTokenDuration))
 
-	accessToken, err := createToken(expireAtForAccessToken, userId)
+	accessToken, err := createToken(expireAtForAccessToken, userId, "access")
 	if err != nil {
 		return result, fmt.Errorf("error token pair generation: %v", err)
 	}
 
-	refreshToken, err := createToken(expireAtForRefreshToken, userId)
+	refreshToken, err := createToken(expireAtForRefreshToken, userId, "refresh")
 	if err != nil {
 		return result, fmt.Errorf("error token pair generation: %v", err)
 	}
@@ -195,13 +195,14 @@ func generateNewTokenPair(userId int) (*AuthenicationResultDTO, error) {
 	return result, nil
 }
 
-func createToken(expireAt *jwt.NumericDate, userId int) (string, error) {
+func createToken(expireAt *jwt.NumericDate, userId int, subject string) (string, error) {
 	claims := UserClaims{
 		userId,
 		jwt.RegisteredClaims{
 			ExpiresAt: expireAt,
 			Issuer:    tokenIssuer,
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			Subject:   subject,
 		},
 	}
 
