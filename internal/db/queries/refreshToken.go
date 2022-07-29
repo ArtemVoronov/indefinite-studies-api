@@ -84,7 +84,7 @@ func DeleteRefreshToken(tx *sql.Tx, ctx context.Context, userId int) error {
 	if err != nil {
 		return fmt.Errorf("error at deleting refresh token, case after preparing statement: %s", err)
 	}
-	res, err := stmt.ExecContext(ctx, userId, entities.USER_STATE_DELETED)
+	res, err := stmt.ExecContext(ctx, userId)
 	if err != nil {
 		return fmt.Errorf("error at deleting refresh token by user id '%d', case after executing statement: %s", userId, err)
 	}
